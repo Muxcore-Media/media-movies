@@ -1,0 +1,123 @@
+syntax = "proto3";
+package muxcore.media.movies.v1;
+option go_package = "github.com/Muxcore-Media/media-movies/proto/mgmntv1;mgmntv1";
+
+service MovieManagementService {
+  rpc AddMovie(AddMovieRequest) returns (AddMovieResponse);
+  rpc RemoveMovie(RemoveMovieRequest) returns (RemoveMovieResponse);
+  rpc RefreshMetadata(RefreshMetadataRequest) returns (RefreshMetadataResponse);
+  rpc ListMovies(ListMoviesRequest) returns (ListMoviesResponse);
+  rpc GetMovie(GetMovieRequest) returns (GetMovieResponse);
+  rpc AddFile(AddFileRequest) returns (AddFileResponse);
+  rpc RemoveFile(RemoveFileRequest) returns (RemoveFileResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+}
+
+message AddMovieRequest {
+  int32 tmdb_id = 1;
+  string title = 2;
+  int32 year = 3;
+  string overview = 4;
+  string poster_path = 5;
+  string backdrop_path = 6;
+  repeated string genres = 7;
+}
+
+message AddMovieResponse {
+  string movie_id = 1;
+}
+
+message RemoveMovieRequest {
+  string movie_id = 1;
+}
+
+message RemoveMovieResponse {}
+
+message RefreshMetadataRequest {
+  string movie_id = 1;
+}
+
+message RefreshMetadataResponse {}
+
+message ListMoviesRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string search = 3;
+  string genre = 4;
+  string sort_by = 5;
+  string sort_order = 6;
+}
+
+message ListMoviesResponse {
+  repeated MovieItem movies = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message GetMovieRequest {
+  string movie_id = 1;
+}
+
+message GetMovieResponse {
+  MovieItem movie = 1;
+}
+
+message MovieItem {
+  string id = 1;
+  int32 tmdb_id = 2;
+  string title = 3;
+  string original_title = 4;
+  int32 year = 5;
+  string overview = 6;
+  string tagline = 7;
+  int32 runtime = 8;
+  double vote_average = 9;
+  string status = 10;
+  string imdb_id = 11;
+  repeated string genres = 12;
+  string poster_path = 13;
+  string backdrop_path = 14;
+  string poster_url = 15;
+  string backdrop_url = 16;
+  bool monitored = 17;
+  bool has_file = 20;
+  string created_at = 18;
+  string updated_at = 19;
+}
+
+message AddFileRequest {
+  string movie_id = 1;
+  string file_path = 2;
+  string quality = 3;
+  int64 size_bytes = 4;
+  string container = 5;
+}
+
+message AddFileResponse {
+  string file_id = 1;
+}
+
+message RemoveFileRequest {
+  string file_id = 1;
+}
+
+message RemoveFileResponse {}
+
+message ListFilesRequest {
+  string movie_id = 1;
+}
+
+message ListFilesResponse {
+  repeated MovieFile files = 1;
+}
+
+message MovieFile {
+  string id = 1;
+  string movie_id = 2;
+  string file_path = 3;
+  string quality = 4;
+  int64 size_bytes = 5;
+  string container = 6;
+  string created_at = 7;
+}

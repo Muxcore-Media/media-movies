@@ -1,0 +1,16 @@
+{
+  "name": "Media Movies",
+  "description": "Movie library manager with TMDB metadata import, SQLite storage, and MediaAdminService for admin UI",
+  "version": "0.1.0",
+  "author": "MuxCore",
+  "roles": ["media_manager"],
+  "capabilities": ["media.library"],
+  "contracts": [
+    {
+      "repo": "github.com/Muxcore-Media/contracts-media-admin",
+      "interface": "MediaAdminService",
+      "version": "v0.1.0"
+    }
+  ],
+  "minCoreVersion": "0.4.0"
+}

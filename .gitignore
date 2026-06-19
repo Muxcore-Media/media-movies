@@ -1,0 +1,28 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+media-movies
+
+# Test binaries
+*.test
+
+# Build output
+dist/
+cmd/module/module
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
