@@ -19,6 +19,9 @@ service MovieManagementService {
   rpc SetItemTags(SetItemTagsRequest) returns (SetItemTagsResponse);
   rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
   rpc GetCollectionMovies(GetCollectionMoviesRequest) returns (GetCollectionMoviesResponse);
+  rpc ListAlternateTitles(ListAlternateTitlesRequest) returns (ListAlternateTitlesResponse);
+  rpc AddAlternateTitle(AddAlternateTitleRequest) returns (AddAlternateTitleResponse);
+  rpc RemoveAlternateTitle(RemoveAlternateTitleRequest) returns (RemoveAlternateTitleResponse);
 }
 
 message AddMovieRequest {
@@ -225,3 +228,35 @@ message GetCollectionMoviesResponse {
   string name = 2;
   repeated MovieItem movies = 3;
 }
+
+message ListAlternateTitlesRequest {
+  string movie_id = 1;
+}
+
+message AlternateTitle {
+  string id = 1;
+  string title = 2;
+  string clean_title = 3;
+  string source = 4;
+}
+
+message ListAlternateTitlesResponse {
+  repeated AlternateTitle titles = 1;
+}
+
+message AddAlternateTitleRequest {
+  string movie_id = 1;
+  string title = 2;
+}
+
+message AddAlternateTitleResponse {
+  AlternateTitle title = 1;
+}
+
+message RemoveAlternateTitleRequest {
+  string movie_id = 1;
+  string title_id = 2;
+}
+
+message RemoveAlternateTitleResponse {}
+
