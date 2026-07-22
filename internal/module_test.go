@@ -235,6 +235,13 @@ func TestGetMediaTypeInfo(t *testing.T) {
 	if len(info.FilterFields) == 0 {
 		t.Error("expected filter fields")
 	}
+	want := map[string]bool{"missing": true, "tags": true, "collections": true}
+	for _, f := range info.Features {
+		delete(want, f)
+	}
+	if len(want) != 0 {
+		t.Errorf("missing features: %v", want)
+	}
 }
 
 func TestListItems(t *testing.T) {
@@ -732,5 +739,65 @@ func TestTagsAndCollections(t *testing.T) {
 	}
 	if len(cm.Movies) != 1 || cm.Name != "Fight Club Collection" {
 		t.Fatalf("collection movies: %+v", cm)
+	}
+}
+
+func TestMediaAdminLibraryAdapters(t *testing.T) {
+	m := newTestModule(t)
+	ctx := context.Background()
+	s := mediaAdminServer{m: m}
+
+	add, err := m.AddMovie(ctx, &mgmntv1.AddMovieRequest{
+		TmdbId: 550, Title: "Fight Club", Year: 1999, QualityProfileId: "qp1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	missing, err := s.ListMissing(ctx, &mediaadminv1.ListMissingRequest{Page: 1, PageSize: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing.Total != 1 || missing.Items[0].Id != add.MovieId {
+		t.Fatalf("admin missing: %+v", missing)
+	}
+
+	tag, err := s.CreateTag(ctx, &mediaadminv1.CreateTagRequest{Label: "admin-fav"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetItemTags(ctx, &mediaadminv1.SetItemTagsRequest{
+		ItemId: add.MovieId, TagIds: []string{tag.TagId},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tags, err := s.ListTags(ctx, &mediaadminv1.ListTagsRequest{})
+	if err != nil || len(tags.Tags) != 1 {
+		t.Fatalf("admin tags: %+v %v", tags, err)
+	}
+	filtered, err := m.ListItems(ctx, &mediaadminv1.ListItemsRequest{
+		Page: 1, PageSize: 20, TagId: tag.TagId,
+	})
+	if err != nil || filtered.Total != 1 {
+		t.Fatalf("tag filter: %+v %v", filtered, err)
+	}
+
+	m.mu.Lock()
+	m.db.ExecContext(ctx, `UPDATE movies SET collection_id=10, collection_name='Fight Club Collection' WHERE id=?`, add.MovieId)
+	m.mu.Unlock()
+
+	cols, err := s.ListCollections(ctx, &mediaadminv1.ListCollectionsRequest{})
+	if err != nil || len(cols.Collections) != 1 || cols.Collections[0].Id != "10" {
+		t.Fatalf("admin collections: %+v %v", cols, err)
+	}
+	items, err := s.GetCollectionItems(ctx, &mediaadminv1.GetCollectionItemsRequest{CollectionId: "10"})
+	if err != nil || len(items.Items) != 1 {
+		t.Fatalf("admin collection items: %+v %v", items, err)
+	}
+
+	if _, err := s.GetCalendar(ctx, &mediaadminv1.GetCalendarRequest{
+		StartDate: "2020-01-01", EndDate: "2020-01-31",
+	}); err == nil {
+		t.Fatal("expected calendar unimplemented for movies")
 	}
 }

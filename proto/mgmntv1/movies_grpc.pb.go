@@ -19,22 +19,25 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	MovieManagementService_AddMovie_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/AddMovie"
-	MovieManagementService_RemoveMovie_FullMethodName         = "/muxcore.media.movies.v1.MovieManagementService/RemoveMovie"
-	MovieManagementService_RefreshMetadata_FullMethodName     = "/muxcore.media.movies.v1.MovieManagementService/RefreshMetadata"
-	MovieManagementService_ListMovies_FullMethodName          = "/muxcore.media.movies.v1.MovieManagementService/ListMovies"
-	MovieManagementService_ListMissing_FullMethodName         = "/muxcore.media.movies.v1.MovieManagementService/ListMissing"
-	MovieManagementService_GetMovie_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/GetMovie"
-	MovieManagementService_UpdateMovie_FullMethodName         = "/muxcore.media.movies.v1.MovieManagementService/UpdateMovie"
-	MovieManagementService_AddFile_FullMethodName             = "/muxcore.media.movies.v1.MovieManagementService/AddFile"
-	MovieManagementService_RemoveFile_FullMethodName          = "/muxcore.media.movies.v1.MovieManagementService/RemoveFile"
-	MovieManagementService_ListFiles_FullMethodName           = "/muxcore.media.movies.v1.MovieManagementService/ListFiles"
-	MovieManagementService_CreateTag_FullMethodName           = "/muxcore.media.movies.v1.MovieManagementService/CreateTag"
-	MovieManagementService_DeleteTag_FullMethodName           = "/muxcore.media.movies.v1.MovieManagementService/DeleteTag"
-	MovieManagementService_ListTags_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/ListTags"
-	MovieManagementService_SetItemTags_FullMethodName         = "/muxcore.media.movies.v1.MovieManagementService/SetItemTags"
-	MovieManagementService_ListCollections_FullMethodName     = "/muxcore.media.movies.v1.MovieManagementService/ListCollections"
-	MovieManagementService_GetCollectionMovies_FullMethodName = "/muxcore.media.movies.v1.MovieManagementService/GetCollectionMovies"
+	MovieManagementService_AddMovie_FullMethodName             = "/muxcore.media.movies.v1.MovieManagementService/AddMovie"
+	MovieManagementService_RemoveMovie_FullMethodName          = "/muxcore.media.movies.v1.MovieManagementService/RemoveMovie"
+	MovieManagementService_RefreshMetadata_FullMethodName      = "/muxcore.media.movies.v1.MovieManagementService/RefreshMetadata"
+	MovieManagementService_ListMovies_FullMethodName           = "/muxcore.media.movies.v1.MovieManagementService/ListMovies"
+	MovieManagementService_ListMissing_FullMethodName          = "/muxcore.media.movies.v1.MovieManagementService/ListMissing"
+	MovieManagementService_GetMovie_FullMethodName             = "/muxcore.media.movies.v1.MovieManagementService/GetMovie"
+	MovieManagementService_UpdateMovie_FullMethodName          = "/muxcore.media.movies.v1.MovieManagementService/UpdateMovie"
+	MovieManagementService_AddFile_FullMethodName              = "/muxcore.media.movies.v1.MovieManagementService/AddFile"
+	MovieManagementService_RemoveFile_FullMethodName           = "/muxcore.media.movies.v1.MovieManagementService/RemoveFile"
+	MovieManagementService_ListFiles_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/ListFiles"
+	MovieManagementService_CreateTag_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/CreateTag"
+	MovieManagementService_DeleteTag_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/DeleteTag"
+	MovieManagementService_ListTags_FullMethodName             = "/muxcore.media.movies.v1.MovieManagementService/ListTags"
+	MovieManagementService_SetItemTags_FullMethodName          = "/muxcore.media.movies.v1.MovieManagementService/SetItemTags"
+	MovieManagementService_ListCollections_FullMethodName      = "/muxcore.media.movies.v1.MovieManagementService/ListCollections"
+	MovieManagementService_GetCollectionMovies_FullMethodName  = "/muxcore.media.movies.v1.MovieManagementService/GetCollectionMovies"
+	MovieManagementService_ListAlternateTitles_FullMethodName  = "/muxcore.media.movies.v1.MovieManagementService/ListAlternateTitles"
+	MovieManagementService_AddAlternateTitle_FullMethodName    = "/muxcore.media.movies.v1.MovieManagementService/AddAlternateTitle"
+	MovieManagementService_RemoveAlternateTitle_FullMethodName = "/muxcore.media.movies.v1.MovieManagementService/RemoveAlternateTitle"
 )
 
 // MovieManagementServiceClient is the client API for MovieManagementService service.
@@ -57,6 +60,9 @@ type MovieManagementServiceClient interface {
 	SetItemTags(ctx context.Context, in *SetItemTagsRequest, opts ...grpc.CallOption) (*SetItemTagsResponse, error)
 	ListCollections(ctx context.Context, in *ListCollectionsRequest, opts ...grpc.CallOption) (*ListCollectionsResponse, error)
 	GetCollectionMovies(ctx context.Context, in *GetCollectionMoviesRequest, opts ...grpc.CallOption) (*GetCollectionMoviesResponse, error)
+	ListAlternateTitles(ctx context.Context, in *ListAlternateTitlesRequest, opts ...grpc.CallOption) (*ListAlternateTitlesResponse, error)
+	AddAlternateTitle(ctx context.Context, in *AddAlternateTitleRequest, opts ...grpc.CallOption) (*AddAlternateTitleResponse, error)
+	RemoveAlternateTitle(ctx context.Context, in *RemoveAlternateTitleRequest, opts ...grpc.CallOption) (*RemoveAlternateTitleResponse, error)
 }
 
 type movieManagementServiceClient struct {
@@ -211,6 +217,33 @@ func (c *movieManagementServiceClient) GetCollectionMovies(ctx context.Context, 
 	return out, nil
 }
 
+func (c *movieManagementServiceClient) ListAlternateTitles(ctx context.Context, in *ListAlternateTitlesRequest, opts ...grpc.CallOption) (*ListAlternateTitlesResponse, error) {
+	out := new(ListAlternateTitlesResponse)
+	err := c.cc.Invoke(ctx, MovieManagementService_ListAlternateTitles_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *movieManagementServiceClient) AddAlternateTitle(ctx context.Context, in *AddAlternateTitleRequest, opts ...grpc.CallOption) (*AddAlternateTitleResponse, error) {
+	out := new(AddAlternateTitleResponse)
+	err := c.cc.Invoke(ctx, MovieManagementService_AddAlternateTitle_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *movieManagementServiceClient) RemoveAlternateTitle(ctx context.Context, in *RemoveAlternateTitleRequest, opts ...grpc.CallOption) (*RemoveAlternateTitleResponse, error) {
+	out := new(RemoveAlternateTitleResponse)
+	err := c.cc.Invoke(ctx, MovieManagementService_RemoveAlternateTitle_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MovieManagementServiceServer is the server API for MovieManagementService service.
 // All implementations must embed UnimplementedMovieManagementServiceServer
 // for forward compatibility
@@ -231,6 +264,9 @@ type MovieManagementServiceServer interface {
 	SetItemTags(context.Context, *SetItemTagsRequest) (*SetItemTagsResponse, error)
 	ListCollections(context.Context, *ListCollectionsRequest) (*ListCollectionsResponse, error)
 	GetCollectionMovies(context.Context, *GetCollectionMoviesRequest) (*GetCollectionMoviesResponse, error)
+	ListAlternateTitles(context.Context, *ListAlternateTitlesRequest) (*ListAlternateTitlesResponse, error)
+	AddAlternateTitle(context.Context, *AddAlternateTitleRequest) (*AddAlternateTitleResponse, error)
+	RemoveAlternateTitle(context.Context, *RemoveAlternateTitleRequest) (*RemoveAlternateTitleResponse, error)
 	mustEmbedUnimplementedMovieManagementServiceServer()
 }
 
@@ -285,6 +321,15 @@ func (UnimplementedMovieManagementServiceServer) ListCollections(context.Context
 }
 func (UnimplementedMovieManagementServiceServer) GetCollectionMovies(context.Context, *GetCollectionMoviesRequest) (*GetCollectionMoviesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCollectionMovies not implemented")
+}
+func (UnimplementedMovieManagementServiceServer) ListAlternateTitles(context.Context, *ListAlternateTitlesRequest) (*ListAlternateTitlesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAlternateTitles not implemented")
+}
+func (UnimplementedMovieManagementServiceServer) AddAlternateTitle(context.Context, *AddAlternateTitleRequest) (*AddAlternateTitleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddAlternateTitle not implemented")
+}
+func (UnimplementedMovieManagementServiceServer) RemoveAlternateTitle(context.Context, *RemoveAlternateTitleRequest) (*RemoveAlternateTitleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveAlternateTitle not implemented")
 }
 func (UnimplementedMovieManagementServiceServer) mustEmbedUnimplementedMovieManagementServiceServer() {
 }
@@ -588,6 +633,60 @@ func _MovieManagementService_GetCollectionMovies_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MovieManagementService_ListAlternateTitles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAlternateTitlesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MovieManagementServiceServer).ListAlternateTitles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MovieManagementService_ListAlternateTitles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MovieManagementServiceServer).ListAlternateTitles(ctx, req.(*ListAlternateTitlesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MovieManagementService_AddAlternateTitle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddAlternateTitleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MovieManagementServiceServer).AddAlternateTitle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MovieManagementService_AddAlternateTitle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MovieManagementServiceServer).AddAlternateTitle(ctx, req.(*AddAlternateTitleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MovieManagementService_RemoveAlternateTitle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveAlternateTitleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MovieManagementServiceServer).RemoveAlternateTitle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MovieManagementService_RemoveAlternateTitle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MovieManagementServiceServer).RemoveAlternateTitle(ctx, req.(*RemoveAlternateTitleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MovieManagementService_ServiceDesc is the grpc.ServiceDesc for MovieManagementService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -658,6 +757,18 @@ var MovieManagementService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCollectionMovies",
 			Handler:    _MovieManagementService_GetCollectionMovies_Handler,
+		},
+		{
+			MethodName: "ListAlternateTitles",
+			Handler:    _MovieManagementService_ListAlternateTitles_Handler,
+		},
+		{
+			MethodName: "AddAlternateTitle",
+			Handler:    _MovieManagementService_AddAlternateTitle_Handler,
+		},
+		{
+			MethodName: "RemoveAlternateTitle",
+			Handler:    _MovieManagementService_RemoveAlternateTitle_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

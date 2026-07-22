@@ -7,6 +7,7 @@ require (
 	github.com/Muxcore-Media/core/pkg/contracts v0.0.0
 	github.com/Muxcore-Media/core/sdk/go/client v0.1.0
 	github.com/Muxcore-Media/core/sdk/go/module v0.1.0
+	github.com/Muxcore-Media/media-root-folders v0.1.0
 	github.com/Muxcore-Media/metadata-tmdb v0.1.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
@@ -40,3 +41,5 @@ replace github.com/Muxcore-Media/core/pkg/contracts => ../core/pkg/contracts
 replace github.com/Muxcore-Media/contracts-media-admin => ../contracts-media-admin
 
 replace github.com/Muxcore-Media/metadata-tmdb => ../metadata-tmdb
+
+replace github.com/Muxcore-Media/media-root-folders => ../media-root-folders

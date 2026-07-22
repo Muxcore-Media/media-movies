@@ -25,12 +25,12 @@ import (
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	"github.com/Muxcore-Media/core/sdk/go/client"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
+	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
 	metadatav1 "github.com/Muxcore-Media/metadata-tmdb/proto/metadatav1"
 	_ "modernc.org/sqlite"
 )
 
 type Module struct {
-	mediaadminv1.UnimplementedMediaAdminServiceServer
 	mgmntv1.UnimplementedMovieManagementServiceServer
 
 	mu sync.RWMutex
@@ -47,6 +47,11 @@ type Module struct {
 	httpSrv      *http.Server
 	grpcLis      net.Listener
 	httpLis      net.Listener
+
+	rootsConn   *grpc.ClientConn
+	rootsClient rootsv1.RootFolderServiceClient
+	// rootsListFn overrides mesh discovery for tests. When set, roots are considered available.
+	rootsListFn func(ctx context.Context, mediaKind string) ([]string, error)
 }
 
 type Config struct {
@@ -238,6 +243,17 @@ func (m *Module) Init(ctx context.Context) error {
 
 	m.mu.Lock()
 	m.db = db
+	if err := m.ensureHistoryTable(ctx); err != nil {
+		m.mu.Unlock()
+		db.Close()
+		return err
+	}
+	if err := m.ensureMovieTitlesTable(ctx); err != nil {
+		m.mu.Unlock()
+		db.Close()
+		return err
+	}
+	m.backfillMovieTitles(ctx)
 	m.mu.Unlock()
 
 	grpcLis, err := net.Listen("tcp", m.grpcAddr)
@@ -264,7 +280,7 @@ func (m *Module) Init(ctx context.Context) error {
 
 func (m *Module) Start(ctx context.Context) error {
 	m.grpcSrv = grpc.NewServer()
-	mediaadminv1.RegisterMediaAdminServiceServer(m.grpcSrv, m)
+	mediaadminv1.RegisterMediaAdminServiceServer(m.grpcSrv, mediaAdminServer{m: m})
 	mgmntv1.RegisterMovieManagementServiceServer(m.grpcSrv, m)
 
 	mux := http.NewServeMux()
@@ -286,6 +302,7 @@ func (m *Module) Start(ctx context.Context) error {
 
 	go m.dialCore(context.Background())
 	go m.subscribeToFileImported()
+	go m.subscribeToDownloadDispatched()
 	return nil
 }
 
@@ -295,6 +312,9 @@ func (m *Module) Stop(ctx context.Context) error {
 	}
 	if m.grpcSrv != nil {
 		m.grpcSrv.GracefulStop()
+	}
+	if m.rootsConn != nil {
+		_ = m.rootsConn.Close()
 	}
 	if m.mc != nil {
 		m.mc.Close()
@@ -444,6 +464,7 @@ func (m *Module) resolveMovieForImport(ctx context.Context, p contracts.FileImpo
 	if err != nil {
 		return "", err
 	}
+	go m.syncMovieTitlesFromTMDB(context.Background(), resp.GetMovieId(), tmdbID, title, "")
 	return resp.GetMovieId(), nil
 }
 
@@ -460,22 +481,23 @@ func (m *Module) findMovieID(tmdbID int32, title string, year int32) string {
 			return id
 		}
 	}
-	norm := normalizeTitle(title)
-	if norm == "" {
+	clean := cleanMatchTitle(title)
+	if clean == "" {
 		return ""
 	}
-	rows, err := m.db.Query(`SELECT id, title, year FROM movies`)
+	rows, err := m.db.Query(`
+		SELECT m.id, m.year FROM movies m
+		INNER JOIN movie_titles t ON t.movie_id = m.id
+		WHERE t.clean_title = ?
+	`, clean)
 	if err != nil {
 		return ""
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var rowID, rowTitle string
+		var rowID string
 		var rowYear int32
-		if err := rows.Scan(&rowID, &rowTitle, &rowYear); err != nil {
-			continue
-		}
-		if normalizeTitle(rowTitle) != norm {
+		if err := rows.Scan(&rowID, &rowYear); err != nil {
 			continue
 		}
 		if year == 0 || rowYear == 0 || rowYear == year {
@@ -500,15 +522,12 @@ func (m *Module) searchMovieMetadata(ctx context.Context, title string, year int
 	resp, err := metaClient.Search(ctx, &metadatav1.SearchRequest{
 		Query: title,
 		Type:  metadatav1.MediaType_MEDIA_TYPE_MOVIE,
+		Year:  year,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("metadata search: %w", err)
 	}
 	return pickBestSearchResult(resp.GetResults(), year, true), nil
-}
-
-func normalizeTitle(s string) string {
-	return strings.ToLower(strings.TrimSpace(s))
 }
 
 func pickBestSearchResult(results []*metadatav1.SearchResult, year int32, movie bool) *metadatav1.SearchResult {
@@ -572,6 +591,11 @@ func (m *Module) publish(ctx context.Context, eventType string, payload map[stri
 // ── MovieManagementService ────────────────────────────────────
 
 func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*mgmntv1.AddMovieResponse, error) {
+	rootPath, err := m.resolveRootFolderPath(ctx, req.GetRootFolderPath(), "movies")
+	if err != nil {
+		return nil, err
+	}
+
 	m.mu.Lock()
 	if m.db == nil {
 		m.mu.Unlock()
@@ -592,12 +616,12 @@ func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*m
 
 	genresJSON, _ := json.Marshal(req.GetGenres())
 
-	_, err := m.db.ExecContext(ctx,
+	_, err = m.db.ExecContext(ctx,
 		`INSERT OR IGNORE INTO movies (id, tmdb_id, title, year, overview, poster_path, backdrop_path, genres, monitored, quality_profile_id, root_folder_path, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
 		id, req.GetTmdbId(), req.GetTitle(), req.GetYear(),
 		req.GetOverview(), req.GetPosterPath(), req.GetBackdropPath(),
-		string(genresJSON), req.GetQualityProfileId(), req.GetRootFolderPath(), now, now,
+		string(genresJSON), req.GetQualityProfileId(), rootPath, now, now,
 	)
 	if err != nil {
 		m.mu.Unlock()
@@ -609,9 +633,11 @@ func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*m
 		m.mu.Unlock()
 		return &mgmntv1.AddMovieResponse{MovieId: existingID}, nil
 	}
+	m.syncMoviePrimaryTitlesLocked(ctx, id, req.GetTitle(), "")
 	m.mu.Unlock()
 
 	m.persistCachedArtwork(ctx, id, req.GetPosterPath(), req.GetBackdropPath())
+	go m.syncMovieTitlesFromTMDB(context.Background(), id, req.GetTmdbId(), req.GetTitle(), "")
 
 	go m.publish(context.Background(), contracts.EventMovieAdded, map[string]interface{}{
 		"movie_id": id, "tmdb_id": req.GetTmdbId(), "title": req.GetTitle(),
@@ -621,6 +647,15 @@ func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*m
 }
 
 func (m *Module) UpdateMovie(ctx context.Context, req *mgmntv1.UpdateMovieRequest) (*mgmntv1.UpdateMovieResponse, error) {
+	var rootPath *string
+	if req.RootFolderPath != nil {
+		resolved, err := m.resolveRootFolderPath(ctx, req.GetRootFolderPath(), "movies")
+		if err != nil {
+			return nil, err
+		}
+		rootPath = &resolved
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.db == nil {
@@ -636,9 +671,9 @@ func (m *Module) UpdateMovie(ctx context.Context, req *mgmntv1.UpdateMovieReques
 		sets = append(sets, `quality_profile_id = ?`)
 		args = append(args, req.GetQualityProfileId())
 	}
-	if req.RootFolderPath != nil {
+	if rootPath != nil {
 		sets = append(sets, `root_folder_path = ?`)
-		args = append(args, req.GetRootFolderPath())
+		args = append(args, *rootPath)
 	}
 	if req.Monitored != nil {
 		monitored := 0
@@ -712,7 +747,15 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 		}
 	}
 
+	m.appendHistory(ctx, historyEntry{
+		EventType: historyDeleteItem,
+		ItemID:    req.GetMovieId(),
+		Title:     title,
+		Data:      map[string]any{"tmdb_id": tmdbID, "delete_files": req.GetDeleteFiles()},
+	})
+
 	m.db.ExecContext(ctx, `DELETE FROM item_tags WHERE item_id = ?`, req.GetMovieId())
+	m.db.ExecContext(ctx, `DELETE FROM movie_titles WHERE movie_id = ?`, req.GetMovieId())
 	m.db.ExecContext(ctx, `DELETE FROM movie_files WHERE movie_id = ?`, req.GetMovieId())
 	_, err := m.db.ExecContext(ctx, `DELETE FROM movies WHERE id = ?`, req.GetMovieId())
 	if err != nil {
@@ -783,12 +826,16 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 		details.GetStatus(), details.GetImdbId(), string(genresJSON),
 		details.GetPosterPath(), details.GetBackdropPath(), collID, collName, now, req.GetMovieId(),
 	)
+	if err == nil {
+		m.syncMoviePrimaryTitlesLocked(ctx, req.GetMovieId(), details.GetTitle(), details.GetOriginalTitle())
+	}
 	m.mu.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("update movie: %w", err)
 	}
 
 	m.persistCachedArtwork(ctx, req.GetMovieId(), posterSrc, backdropSrc)
+	go m.syncMovieTitlesFromTMDB(context.Background(), req.GetMovieId(), tmdbID, details.GetTitle(), details.GetOriginalTitle())
 
 	go m.publish(context.Background(), contracts.EventMovieUpdated, map[string]interface{}{
 		"movie_id": req.GetMovieId(), "tmdb_id": tmdbID, "title": details.GetTitle(),
@@ -833,8 +880,9 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 	var where []string
 
 	if req.GetSearch() != "" {
-		where = append(where, `title LIKE ?`)
-		args = append(args, "%"+req.GetSearch()+"%")
+		where = append(where, `(title LIKE ? OR id IN (SELECT movie_id FROM movie_titles WHERE title LIKE ? OR clean_title LIKE ?))`)
+		q := "%" + req.GetSearch() + "%"
+		args = append(args, q, q, "%"+cleanMatchTitle(req.GetSearch())+"%")
 	}
 	if req.GetGenre() != "" {
 		where = append(where, `genres LIKE ?`)
@@ -1086,6 +1134,17 @@ func (m *Module) AddFile(ctx context.Context, req *mgmntv1.AddFileRequest) (*mgm
 
 	m.db.ExecContext(ctx, `UPDATE movies SET has_file = 1, updated_at = ? WHERE id = ?`, now, req.GetMovieId())
 
+	var title string
+	_ = m.db.QueryRowContext(ctx, `SELECT title FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&title)
+	m.appendHistory(ctx, historyEntry{
+		EventType: historyImport,
+		ItemID:    req.GetMovieId(),
+		Title:     title,
+		Quality:   req.GetQuality(),
+		FilePath:  req.GetFilePath(),
+		Data:      map[string]any{"file_id": id, "container": req.GetContainer(), "size_bytes": req.GetSizeBytes()},
+	})
+
 	go m.publish(context.Background(), contracts.EventMovieFileAdded, map[string]interface{}{
 		"file_id": id, "movie_id": req.GetMovieId(), "file_path": req.GetFilePath(), "quality": req.GetQuality(),
 	})
@@ -1100,13 +1159,29 @@ func (m *Module) RemoveFile(ctx context.Context, req *mgmntv1.RemoveFileRequest)
 		return nil, fmt.Errorf("not initialized")
 	}
 
-	var movieID, filePath string
-	m.db.QueryRowContext(ctx, `SELECT movie_id, file_path FROM movie_files WHERE id = ?`, req.GetFileId()).Scan(&movieID, &filePath)
+	var movieID, filePath, quality string
+	m.db.QueryRowContext(ctx, `SELECT movie_id, file_path, COALESCE(quality, '') FROM movie_files WHERE id = ?`, req.GetFileId()).Scan(&movieID, &filePath, &quality)
+
+	var title string
+	if movieID != "" {
+		_ = m.db.QueryRowContext(ctx, `SELECT title FROM movies WHERE id = ?`, movieID).Scan(&title)
+	}
 
 	if req.GetDeleteFiles() && filePath != "" {
 		var rootFolder string
 		_ = m.db.QueryRowContext(ctx, `SELECT COALESCE(root_folder_path, '') FROM movies WHERE id = ?`, movieID).Scan(&rootFolder)
 		_ = safeDeleteMediaFile(filePath, rootFolder)
+	}
+
+	if movieID != "" {
+		m.appendHistory(ctx, historyEntry{
+			EventType: historyDeleteFile,
+			ItemID:    movieID,
+			Title:     title,
+			Quality:   quality,
+			FilePath:  filePath,
+			Data:      map[string]any{"file_id": req.GetFileId(), "delete_files": req.GetDeleteFiles()},
+		})
 	}
 
 	_, err := m.db.ExecContext(ctx, `DELETE FROM movie_files WHERE id = ?`, req.GetFileId())
@@ -1119,6 +1194,10 @@ func (m *Module) RemoveFile(ctx context.Context, req *mgmntv1.RemoveFileRequest)
 	if remaining == 0 {
 		m.db.ExecContext(ctx, `UPDATE movies SET has_file = 0, updated_at = ? WHERE id = ?`, time.Now().UTC().Format(time.RFC3339), movieID)
 	}
+
+	go m.publish(context.Background(), contracts.EventMovieFileRemoved, map[string]interface{}{
+		"file_id": req.GetFileId(), "movie_id": movieID, "file_path": filePath,
+	})
 
 	return &mgmntv1.RemoveFileResponse{}, nil
 }
@@ -1165,6 +1244,7 @@ func (m *Module) GetMediaTypeInfo(ctx context.Context, req *mediaadminv1.GetMedi
 			{Key: "runtime", Label: "Runtime", Type: "number"},
 			{Key: "has_file", Label: "Has File", Type: "select", Options: []string{"true", "false"}},
 		},
+		Features: []string{"missing", "tags", "collections"},
 	}, nil
 }
 
@@ -1194,8 +1274,13 @@ func (m *Module) ListItems(ctx context.Context, req *mediaadminv1.ListItemsReque
 	var where []string
 
 	if req.GetSearch() != "" {
-		where = append(where, `title LIKE ?`)
-		args = append(args, "%"+req.GetSearch()+"%")
+		where = append(where, `(title LIKE ? OR id IN (SELECT movie_id FROM movie_titles WHERE title LIKE ? OR clean_title LIKE ?))`)
+		q := "%" + req.GetSearch() + "%"
+		args = append(args, q, q, "%"+cleanMatchTitle(req.GetSearch())+"%")
+	}
+	if req.GetTagId() != "" {
+		where = append(where, `id IN (SELECT item_id FROM item_tags WHERE tag_id = ?)`)
+		args = append(args, req.GetTagId())
 	}
 
 	sortBy := req.GetSortBy()
@@ -1279,6 +1364,20 @@ func (m *Module) UpdateMetadata(ctx context.Context, req *mediaadminv1.UpdateMet
 		return nil, fmt.Errorf("update movie: %w", err)
 	}
 
+	meta := req.GetMetadata()
+	if meta != nil {
+		if v, ok := meta["quality_profile_id"]; ok {
+			if _, err := m.db.ExecContext(ctx, `UPDATE movies SET quality_profile_id=?, updated_at=? WHERE id=?`, v, now, req.GetId()); err != nil {
+				return nil, fmt.Errorf("update quality_profile_id: %w", err)
+			}
+		}
+		if v, ok := meta["root_folder_path"]; ok {
+			if _, err := m.db.ExecContext(ctx, `UPDATE movies SET root_folder_path=?, updated_at=? WHERE id=?`, v, now, req.GetId()); err != nil {
+				return nil, fmt.Errorf("update root_folder_path: %w", err)
+			}
+		}
+	}
+
 	row := m.db.QueryRowContext(ctx,
 		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
@@ -1354,7 +1453,7 @@ func (m *Module) RefreshItem(ctx context.Context, req *mediaadminv1.RefreshItemR
 	return &mediaadminv1.RefreshItemResponse{Item: item.Item}, nil
 }
 
-func (m *Module) ReplaceArtwork(stream grpc.ClientStreamingServer[mediaadminv1.ReplaceArtworkRequest, mediaadminv1.ReplaceArtworkResponse]) error {
+func (m *Module) ReplaceArtwork(stream mediaadminv1.MediaAdminService_ReplaceArtworkServer) error {
 	ctx := stream.Context()
 	var itemID, artworkType, filename string
 	var buf []byte
