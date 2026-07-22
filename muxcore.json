@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "author": "MuxCore",
   "roles": ["media_manager"],
-  "capabilities": ["media.library"],
+  "capabilities": ["media.library", "media.library.movies"],
   "contracts": [
     {
       "repo": "github.com/Muxcore-Media/contracts-media-admin",

@@ -7,10 +7,18 @@ service MovieManagementService {
   rpc RemoveMovie(RemoveMovieRequest) returns (RemoveMovieResponse);
   rpc RefreshMetadata(RefreshMetadataRequest) returns (RefreshMetadataResponse);
   rpc ListMovies(ListMoviesRequest) returns (ListMoviesResponse);
+  rpc ListMissing(ListMissingRequest) returns (ListMissingResponse);
   rpc GetMovie(GetMovieRequest) returns (GetMovieResponse);
+  rpc UpdateMovie(UpdateMovieRequest) returns (UpdateMovieResponse);
   rpc AddFile(AddFileRequest) returns (AddFileResponse);
   rpc RemoveFile(RemoveFileRequest) returns (RemoveFileResponse);
   rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc SetItemTags(SetItemTagsRequest) returns (SetItemTagsResponse);
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  rpc GetCollectionMovies(GetCollectionMoviesRequest) returns (GetCollectionMoviesResponse);
 }
 
 message AddMovieRequest {
@@ -21,6 +29,8 @@ message AddMovieRequest {
   string poster_path = 5;
   string backdrop_path = 6;
   repeated string genres = 7;
+  string quality_profile_id = 8;
+  string root_folder_path = 9;
 }
 
 message AddMovieResponse {
@@ -29,6 +39,7 @@ message AddMovieResponse {
 
 message RemoveMovieRequest {
   string movie_id = 1;
+  bool delete_files = 2;
 }
 
 message RemoveMovieResponse {}
@@ -46,6 +57,7 @@ message ListMoviesRequest {
   string genre = 4;
   string sort_by = 5;
   string sort_order = 6;
+  string tag_id = 7;
 }
 
 message ListMoviesResponse {
@@ -55,11 +67,43 @@ message ListMoviesResponse {
   int32 page_size = 4;
 }
 
+message ListMissingRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListMissingResponse {
+  repeated MissingMovieItem items = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message MissingMovieItem {
+  string movie_id = 1;
+  int32 tmdb_id = 2;
+  string title = 3;
+  int32 year = 4;
+  string quality_profile_id = 5;
+  string root_folder_path = 6;
+}
+
 message GetMovieRequest {
   string movie_id = 1;
 }
 
 message GetMovieResponse {
+  MovieItem movie = 1;
+}
+
+message UpdateMovieRequest {
+  string movie_id = 1;
+  optional string quality_profile_id = 2;
+  optional string root_folder_path = 3;
+  optional bool monitored = 4;
+}
+
+message UpdateMovieResponse {
   MovieItem movie = 1;
 }
 
@@ -84,6 +128,10 @@ message MovieItem {
   bool has_file = 20;
   string created_at = 18;
   string updated_at = 19;
+  string quality_profile_id = 21;
+  string root_folder_path = 22;
+  int32 collection_id = 23;
+  string collection_name = 24;
 }
 
 message AddFileRequest {
@@ -100,6 +148,7 @@ message AddFileResponse {
 
 message RemoveFileRequest {
   string file_id = 1;
+  bool delete_files = 2;
 }
 
 message RemoveFileResponse {}
@@ -120,4 +169,59 @@ message MovieFile {
   int64 size_bytes = 5;
   string container = 6;
   string created_at = 7;
+}
+
+message CreateTagRequest {
+  string label = 1;
+}
+
+message CreateTagResponse {
+  string tag_id = 1;
+}
+
+message DeleteTagRequest {
+  string tag_id = 1;
+}
+
+message DeleteTagResponse {}
+
+message ListTagsRequest {}
+
+message ListTagsResponse {
+  repeated Tag tags = 1;
+}
+
+message Tag {
+  string id = 1;
+  string label = 2;
+  string created_at = 3;
+}
+
+message SetItemTagsRequest {
+  string item_id = 1;
+  repeated string tag_ids = 2;
+}
+
+message SetItemTagsResponse {}
+
+message ListCollectionsRequest {}
+
+message ListCollectionsResponse {
+  repeated CollectionSummary collections = 1;
+}
+
+message CollectionSummary {
+  int32 collection_id = 1;
+  string name = 2;
+  int32 movie_count = 3;
+}
+
+message GetCollectionMoviesRequest {
+  int32 collection_id = 1;
+}
+
+message GetCollectionMoviesResponse {
+  int32 collection_id = 1;
+  string name = 2;
+  repeated MovieItem movies = 3;
 }
