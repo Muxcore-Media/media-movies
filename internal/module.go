@@ -344,7 +344,7 @@ func (m *Module) dialCore(ctx context.Context) {
 	if meshAddr == "" {
 		meshAddr = "localhost:9090"
 	}
-	insecureMode := os.Getenv("MUXCORE_GRPC_INSECURE") == "true"
+	insecureMode := os.Getenv("MUXCORE_INSECURE_DISABLE_TLS") == "true" || os.Getenv("MUXCORE_GRPC_INSECURE") == "true"
 
 	var opts []client.Option
 	if insecureMode {
