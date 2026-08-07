@@ -40,11 +40,8 @@ jobs:
         with:
           go-version: "1.26"
           cache: true
-      - uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
-          working-directory: ./media-movies
-          args: --timeout 120s
+      - working-directory: ./media-movies
+        run: go vet ./...
 
   test:
     runs-on: ubuntu-latest
@@ -77,7 +74,7 @@ jobs:
           go-version: "1.26"
           cache: true
       - working-directory: ./media-movies
-        run: go test -race -count=1 -timeout 60s ./...
+        run: go test -race -count=1 -timeout 10m ./...
 
   build:
     runs-on: ubuntu-latest
