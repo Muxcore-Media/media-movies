@@ -114,8 +114,9 @@ func (m *Module) findRootsAddr(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("discover media.roots: %w", err)
 	}
 	for _, mod := range modules {
-		if mod.HttpAddr != "" {
-			return mod.HttpAddr, nil
+		addr := dialAddrForModule(mod.Id, mod.HttpAddr)
+		if addr != "" {
+			return addr, nil
 		}
 	}
 	return "", fmt.Errorf("no media.roots module found")
