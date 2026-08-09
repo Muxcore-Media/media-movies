@@ -285,6 +285,7 @@ func (m *Module) Start(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(m.imageDir))))
+	mux.HandleFunc("/stream/movies/", m.handleStreamMovie)
 	m.httpSrv = &http.Server{Handler: mux}
 
 	go func() {
@@ -1554,6 +1555,56 @@ func (m *Module) movieToMediaItem(movie *mgmntv1.MovieItem) *mediaadminv1.MediaI
 		Artwork:   m.buildArtworkInfos(movie.GetId(), movie.GetPosterPath(), movie.GetBackdropPath()),
 		CreatedAt: movie.GetCreatedAt(), UpdatedAt: movie.GetUpdatedAt(),
 	}
+}
+
+// handleStreamMovie serves the first attached movie file for browser playback.
+// Path: GET /stream/movies/{movie_id}
+func (m *Module) handleStreamMovie(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := strings.Trim(strings.TrimPrefix(r.URL.Path, "/stream/movies/"), "/")
+	if id == "" || strings.Contains(id, "/") {
+		http.NotFound(w, r)
+		return
+	}
+
+	m.mu.RLock()
+	db := m.db
+	m.mu.RUnlock()
+	if db == nil {
+		http.Error(w, "not initialized", http.StatusServiceUnavailable)
+		return
+	}
+
+	var filePath string
+	err := db.QueryRowContext(r.Context(),
+		`SELECT file_path FROM movie_files WHERE movie_id = ? ORDER BY created_at LIMIT 1`, id,
+	).Scan(&filePath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if filePath == "" || !filepath.IsAbs(filePath) {
+		http.NotFound(w, r)
+		return
+	}
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		slog.Warn("stream open failed", "movie_id", id, "path", filePath, "error", err)
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+
+	st, err := f.Stat()
+	if err != nil || st.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeContent(w, r, filepath.Base(filePath), st.ModTime(), f)
 }
 
 var _ contracts.Module = (*Module)(nil)
