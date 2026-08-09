@@ -572,11 +572,34 @@ func (m *Module) findMetadataAddr(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("discover metadata: %w", err)
 	}
 	for _, mod := range modules {
-		if mod.HttpAddr != "" {
-			return mod.HttpAddr, nil
+		addr := dialAddrForModule(mod.Id, mod.HttpAddr)
+		if addr != "" {
+			return addr, nil
 		}
 	}
 	return "", fmt.Errorf("no metadata module found")
+}
+
+// dialAddrForModule maps discovery HttpAddr to a dial target.
+// Bare/wildcard hosts use module ID (compose DNS) unless MUXCORE_MESH_DIAL_LOCAL=true.
+func dialAddrForModule(moduleID, httpAddr string) string {
+	if httpAddr == "" {
+		return ""
+	}
+	host, port, err := net.SplitHostPort(httpAddr)
+	if err != nil || port == "" {
+		return httpAddr
+	}
+	if host != "" && host != "0.0.0.0" && host != "::" {
+		return net.JoinHostPort(host, port)
+	}
+	if os.Getenv("MUXCORE_MESH_DIAL_LOCAL") == "true" {
+		return net.JoinHostPort("127.0.0.1", port)
+	}
+	if moduleID != "" {
+		return net.JoinHostPort(moduleID, port)
+	}
+	return httpAddr
 }
 
 func (m *Module) publish(ctx context.Context, eventType string, payload map[string]interface{}) {
