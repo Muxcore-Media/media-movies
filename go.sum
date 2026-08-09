@@ -1,3 +1,17 @@
+github.com/Muxcore-Media/contracts-media-admin v0.1.0 h1:HaT4FiI0wTzGRO3w62Ln5CuPH9W/f1cUvg+WAsoZ4fk=
+github.com/Muxcore-Media/contracts-media-admin v0.1.0/go.mod h1:FnXzE5nlrbgdRdlSiQlJ/xW6bJh5WWf+J2Q6BcOPp5M=
+github.com/Muxcore-Media/core v0.5.0 h1:iW78JWvamIQWw+pjrS0ZDDRXNxWU+vhbs3riOxBWGzg=
+github.com/Muxcore-Media/core v0.5.0/go.mod h1:MG+eFlGf41DIPGHxbT6AGQ8F/g7ct0mCkOQ5YLDNBoI=
+github.com/Muxcore-Media/core/pkg/contracts v0.5.0 h1:1DD8QCzIsAYgz2lmxDPucargBdSe2af/xhHwZpjxNKs=
+github.com/Muxcore-Media/core/pkg/contracts v0.5.0/go.mod h1:gbI+28IlviQlGYYoQj2DJVet/5LXLQtjFeSRo0a+8BI=
+github.com/Muxcore-Media/core/sdk/go/client v0.5.0 h1:Ze6D3av9cVfUFjTsgNiHR7aixwJGrF8KzsAddl7eYKY=
+github.com/Muxcore-Media/core/sdk/go/client v0.5.0/go.mod h1:VtjK73tD+awO/XMvCk9+en+E8P7ISDYJkATRI5cO4wc=
+github.com/Muxcore-Media/core/sdk/go/module v0.5.0 h1:6+flrG8eAYppZqGfPFrfHcwBk6yeAkHhAHDkCspJWwo=
+github.com/Muxcore-Media/core/sdk/go/module v0.5.0/go.mod h1:Xrvicm1Nk/2igPJvccxaUxpNorzCgoQevVevDmJ11WA=
+github.com/Muxcore-Media/media-root-folders v0.1.1 h1:1uQh1GdsRif6GE+7Jpk3zEFtpO4ZUsHeqX8UGvkFUr8=
+github.com/Muxcore-Media/media-root-folders v0.1.1/go.mod h1:pnvgpj42RzbM5r8HPfbRW9lbeYYr7c8MojyTUHjRF78=
+github.com/Muxcore-Media/metadata-tmdb v0.1.1 h1:NRI1wUHVfRoHrpcYvES0rDTZluZB4XF7Gy4MevoDimk=
+github.com/Muxcore-Media/metadata-tmdb v0.1.1/go.mod h1:fXZfCWlcf1b0gz7ZU2l1/hlPCITFBTXIE/ctwzY8XB4=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
