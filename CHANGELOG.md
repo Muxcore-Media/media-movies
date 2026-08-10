@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [0.1.7] — 2026-08-10
+
+### Fixed
+- Tests expect absolute destination_path when both storage_key and destination are present.
+
+
 ## [0.1.6] — 2026-08-10
 
 ### Fixed
