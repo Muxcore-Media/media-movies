@@ -25,6 +25,7 @@ import (
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	"github.com/Muxcore-Media/core/sdk/go/client"
+	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
 	automationv1 "github.com/Muxcore-Media/media-automation/proto/automationv1"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
@@ -35,9 +36,10 @@ import (
 type Module struct {
 	mgmntv1.UnimplementedMovieManagementServiceServer
 
-	mu sync.RWMutex
-	db *sql.DB
-	mc *client.Client
+	mu    sync.RWMutex
+	cfgMu sync.RWMutex
+	db    *sql.DB
+	mc    *client.Client
 
 	id           string
 	dbPath       string
@@ -127,7 +129,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Media Movies",
-		Version:      "0.1.7",
+		Version:      "0.1.8",
 		Roles:        []string{"media_manager"},
 		Description:  "Movie library manager with TMDB metadata import, file tracking, and admin UI integration",
 		Author:       "MuxCore",
@@ -286,9 +288,12 @@ func (m *Module) Start(ctx context.Context) error {
 	m.grpcSrv = grpc.NewServer()
 	mediaadminv1.RegisterMediaAdminServiceServer(m.grpcSrv, mediaAdminServer{m: m})
 	mgmntv1.RegisterMovieManagementServiceServer(m.grpcSrv, m)
+	modulesdk.RegisterSettings(m.grpcSrv, m.id, m)
 
 	mux := http.NewServeMux()
-	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(m.imageDir))))
+	mux.HandleFunc("/images/", func(w http.ResponseWriter, r *http.Request) {
+		http.StripPrefix("/images/", http.FileServer(http.Dir(m.getImageDir()))).ServeHTTP(w, r)
+	})
 	mux.HandleFunc("/stream/movies/", m.handleStreamMovie)
 	m.httpSrv = &http.Server{Handler: mux}
 

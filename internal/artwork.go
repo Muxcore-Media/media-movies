@@ -80,7 +80,7 @@ func (m *Module) localArtworkExists(relPath string) bool {
 	if relPath == "" || isTMDBPath(relPath) {
 		return false
 	}
-	_, err := os.Stat(filepath.Join(m.imageDir, filepath.FromSlash(relPath)))
+	_, err := os.Stat(filepath.Join(m.getImageDir(), filepath.FromSlash(relPath)))
 	return err == nil
 }
 
@@ -88,7 +88,7 @@ func (m *Module) removeItemArtwork(itemID string) {
 	if itemID == "" {
 		return
 	}
-	_ = os.RemoveAll(filepath.Join(m.imageDir, itemID))
+	_ = os.RemoveAll(filepath.Join(m.getImageDir(), itemID))
 }
 
 func (m *Module) writeArtworkBytes(itemID, kind, filename, contentType string, data []byte) (relPath, mime string, err error) {
@@ -107,12 +107,12 @@ func (m *Module) writeArtworkBytes(itemID, kind, filename, contentType string, d
 	}
 
 	ext := extFromFilenameOrMIME(filename, contentType)
-	dir := filepath.Join(m.imageDir, itemID)
+	dir := filepath.Join(m.getImageDir(), itemID)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", "", fmt.Errorf("create artwork dir: %w", err)
 	}
 	relPath = filepath.ToSlash(filepath.Join(itemID, kind+ext))
-	abs := filepath.Join(m.imageDir, filepath.FromSlash(relPath))
+	abs := filepath.Join(m.getImageDir(), filepath.FromSlash(relPath))
 	if err := os.WriteFile(abs, data, 0600); err != nil {
 		return "", "", fmt.Errorf("write artwork: %w", err)
 	}
