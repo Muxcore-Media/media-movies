@@ -127,7 +127,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Media Movies",
-		Version:      "0.1.5",
+		Version:      "0.1.6",
 		Roles:        []string{"media_manager"},
 		Description:  "Movie library manager with TMDB metadata import, file tracking, and admin UI integration",
 		Author:       "MuxCore",
@@ -403,9 +403,14 @@ func (m *Module) handleFileImported(ctx context.Context, p contracts.FileImporte
 	if qualityStr == "" {
 		qualityStr = "Unknown"
 	}
-	filePath := p.StorageKey
-	if filePath == "" {
-		filePath = p.DestinationPath
+	filePath := p.DestinationPath
+	if !filepath.IsAbs(filePath) {
+		// Prefer absolute library paths for local streaming; storage keys are relative.
+		if filepath.IsAbs(p.StorageKey) {
+			filePath = p.StorageKey
+		} else if filePath == "" {
+			filePath = p.StorageKey
+		}
 	}
 	ext := filepath.Ext(filePath)
 	container := "mkv"
@@ -1615,6 +1620,19 @@ func (m *Module) handleStreamMovie(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.NotFound(w, r)
 		return
+	}
+	if filePath != "" && !filepath.IsAbs(filePath) {
+		var root string
+		_ = db.QueryRowContext(r.Context(),
+			`SELECT COALESCE(root_folder_path, '') FROM movies WHERE id = ?`, id,
+		).Scan(&root)
+		if root != "" {
+			rel := strings.TrimPrefix(filepath.ToSlash(filePath), "media/")
+			candidate := filepath.Join(root, filepath.FromSlash(rel))
+			if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
+				filePath = candidate
+			}
+		}
 	}
 	if filePath == "" || !filepath.IsAbs(filePath) {
 		http.NotFound(w, r)

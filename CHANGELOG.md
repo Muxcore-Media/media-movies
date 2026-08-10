@@ -1,6 +1,13 @@
 # Changelog
 
 
+## [0.1.6] — 2026-08-10
+
+### Fixed
+- Resolve relative/storage-key movie file paths against root_folder_path for streaming.
+- Prefer absolute destination_path over storage_key when attaching imported files.
+
+
 ## [0.1.5] — 2026-08-10
 
 ### Fixed
