@@ -51,6 +51,10 @@ func (s mediaAdminServer) RefreshItem(ctx context.Context, req *mediaadminv1.Ref
 	return s.m.RefreshItem(ctx, req)
 }
 
+func (s mediaAdminServer) SearchIndexers(ctx context.Context, req *mediaadminv1.SearchIndexersRequest) (*mediaadminv1.SearchIndexersResponse, error) {
+	return s.m.SearchIndexers(ctx, req)
+}
+
 func (s mediaAdminServer) ListHistory(ctx context.Context, req *mediaadminv1.ListHistoryRequest) (*mediaadminv1.ListHistoryResponse, error) {
 	return s.m.ListHistory(ctx, req)
 }
