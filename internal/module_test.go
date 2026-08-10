@@ -424,8 +424,9 @@ func TestHandleFileImportedMatchesExisting(t *testing.T) {
 	if len(files.Files) != 1 {
 		t.Fatalf("expected 1 file, got %d", len(files.Files))
 	}
-	if files.Files[0].FilePath != "media/Movies/Pulp Fiction (1994)/Pulp.Fiction.1994.mkv" {
-		t.Errorf("unexpected path %s", files.Files[0].FilePath)
+	want := "/data/media/Movies/Pulp Fiction (1994)/Pulp.Fiction.1994.mkv"
+	if files.Files[0].FilePath != want {
+		t.Errorf("unexpected path %s (want absolute destination)", files.Files[0].FilePath)
 	}
 }
 
