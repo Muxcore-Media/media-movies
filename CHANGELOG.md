@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [0.1.8] — 2026-08-10
+
+### Added
+- SettingsProvider mesh (`RegisterSettings`) for `image_dir` (live artwork path).
+
+
 ## [0.1.7] — 2026-08-10
 
 ### Fixed
