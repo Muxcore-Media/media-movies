@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [0.1.5] — 2026-08-10
+
+### Fixed
+- PathUnescape movie stream ids so RFC3339-suffixed ids work through proxies.
+
+
 ## [0.1.4] — 2026-08-10
 
 ### Fixed
