@@ -4,14 +4,15 @@ go 1.26.4
 
 require (
 	github.com/Muxcore-Media/contracts-media-admin v0.1.0
-	github.com/Muxcore-Media/core/pkg/contracts v0.5.1
+	github.com/Muxcore-Media/core/pkg/contracts v0.5.2
 	github.com/Muxcore-Media/core/sdk/go/client v0.5.1
-	github.com/Muxcore-Media/core/sdk/go/module v0.5.1
+	github.com/Muxcore-Media/core/sdk/go/module v0.5.2
+	github.com/Muxcore-Media/media-automation v0.1.5
 	github.com/Muxcore-Media/media-root-folders v0.1.1
 	github.com/Muxcore-Media/metadata-tmdb v0.1.1
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.52.0
+	modernc.org/sqlite v1.54.0
 )
 
 require (
@@ -25,7 +26,7 @@ require (
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
-	modernc.org/libc v1.72.3 // indirect
+	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
