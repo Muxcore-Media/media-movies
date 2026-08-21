@@ -94,26 +94,31 @@ func (m *Module) SetItemTags(ctx context.Context, req *mgmntv1.SetItemTagsReques
 }
 
 func (m *Module) ListCollections(ctx context.Context, req *mgmntv1.ListCollectionsRequest) (*mgmntv1.ListCollectionsResponse, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.db == nil {
 		return nil, fmt.Errorf("not initialized")
 	}
+	_ = m.ensureCollectionPrefs(ctx)
 	rows, err := m.db.QueryContext(ctx,
-		`SELECT collection_id, MAX(collection_name), COUNT(*) FROM movies
-		 WHERE collection_id > 0 GROUP BY collection_id ORDER BY MAX(collection_name)`)
+		`SELECT m.collection_id, MAX(m.collection_name), COUNT(*),
+		 COALESCE((SELECT p.monitored FROM collection_prefs p WHERE p.collection_id = m.collection_id), 0)
+		 FROM movies m
+		 WHERE m.collection_id > 0 GROUP BY m.collection_id ORDER BY MAX(m.collection_name)`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []*mgmntv1.CollectionSummary
 	for rows.Next() {
-		var id, count int32
+		var id, count, monitored int32
 		var name string
-		if err := rows.Scan(&id, &name, &count); err != nil {
+		if err := rows.Scan(&id, &name, &count, &monitored); err != nil {
 			return nil, err
 		}
-		out = append(out, &mgmntv1.CollectionSummary{CollectionId: id, Name: name, MovieCount: count})
+		out = append(out, &mgmntv1.CollectionSummary{
+			CollectionId: id, Name: name, MovieCount: count, Monitored: monitored != 0,
+		})
 	}
 	return &mgmntv1.ListCollectionsResponse{Collections: out}, nil
 }

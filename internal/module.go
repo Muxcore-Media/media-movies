@@ -129,11 +129,11 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Media Movies",
-		Version:      "0.1.9",
+		Version:      "0.1.11",
 		Roles:        []string{"media_manager"},
 		Description:  "Movie library manager with TMDB metadata import, file tracking, and admin UI integration",
 		Author:       "MuxCore",
-		Capabilities: []string{"media.library", "media.library.movies", "settings"},
+		Capabilities: []string{"media.library", "media.library.movies", "settings", "backupable"},
 		Contracts: []contracts.ContractDeclaration{
 			{Repo: "github.com/Muxcore-Media/contracts-media-admin", Interface: "MediaAdminService", Version: "v0.1.0"},
 		},
@@ -193,6 +193,7 @@ func (m *Module) Init(ctx context.Context) error {
 		`ALTER TABLE movies ADD COLUMN root_folder_path TEXT DEFAULT ''`,
 		`ALTER TABLE movies ADD COLUMN collection_id INTEGER DEFAULT 0`,
 		`ALTER TABLE movies ADD COLUMN collection_name TEXT DEFAULT ''`,
+		`ALTER TABLE movies ADD COLUMN minimum_availability TEXT DEFAULT 'released'`,
 	} {
 		if _, err := db.ExecContext(ctx, col); err != nil && !strings.Contains(err.Error(), "duplicate column") {
 			db.Close()
@@ -255,6 +256,11 @@ func (m *Module) Init(ctx context.Context) error {
 		return err
 	}
 	if err := m.ensureMovieTitlesTable(ctx); err != nil {
+		m.mu.Unlock()
+		db.Close()
+		return err
+	}
+	if err := m.ensureCollectionPrefs(ctx); err != nil {
 		m.mu.Unlock()
 		db.Close()
 		return err
@@ -641,9 +647,10 @@ func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*m
 	}
 
 	var existingID string
-	if req.GetTmdbId() != 0 {
+		if req.GetTmdbId() != 0 {
 		_ = m.db.QueryRowContext(ctx, `SELECT id FROM movies WHERE tmdb_id = ? LIMIT 1`, req.GetTmdbId()).Scan(&existingID)
 		if existingID != "" {
+			m.backfillMovieArtworkIfEmptyLocked(ctx, existingID, req.GetPosterPath(), req.GetBackdropPath())
 			m.mu.Unlock()
 			return &mgmntv1.AddMovieResponse{MovieId: existingID}, nil
 		}
@@ -684,6 +691,32 @@ func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*m
 	return &mgmntv1.AddMovieResponse{MovieId: id}, nil
 }
 
+func (m *Module) backfillMovieArtworkIfEmptyLocked(ctx context.Context, movieID, posterPath, backdropPath string) {
+	if m.db == nil || movieID == "" {
+		return
+	}
+	posterPath = strings.TrimSpace(posterPath)
+	backdropPath = strings.TrimSpace(backdropPath)
+	if posterPath == "" && backdropPath == "" {
+		return
+	}
+	var currentPoster, currentBackdrop string
+	_ = m.db.QueryRowContext(ctx, `SELECT poster_path, backdrop_path FROM movies WHERE id = ?`, movieID).
+		Scan(&currentPoster, &currentBackdrop)
+	now := time.Now().UTC().Format(time.RFC3339)
+	if posterPath != "" && strings.TrimSpace(currentPoster) == "" {
+		_, _ = m.db.ExecContext(ctx, `UPDATE movies SET poster_path = ?, updated_at = ? WHERE id = ?`, posterPath, now, movieID)
+		currentPoster = posterPath
+	}
+	if backdropPath != "" && strings.TrimSpace(currentBackdrop) == "" {
+		_, _ = m.db.ExecContext(ctx, `UPDATE movies SET backdrop_path = ?, updated_at = ? WHERE id = ?`, backdropPath, now, movieID)
+		currentBackdrop = backdropPath
+	}
+	if currentPoster != "" || currentBackdrop != "" {
+		go m.persistCachedArtwork(context.Background(), movieID, currentPoster, currentBackdrop)
+	}
+}
+
 func (m *Module) UpdateMovie(ctx context.Context, req *mgmntv1.UpdateMovieRequest) (*mgmntv1.UpdateMovieResponse, error) {
 	var rootPath *string
 	if req.RootFolderPath != nil {
@@ -720,6 +753,16 @@ func (m *Module) UpdateMovie(ctx context.Context, req *mgmntv1.UpdateMovieReques
 		}
 		sets = append(sets, `monitored = ?`)
 		args = append(args, monitored)
+	}
+	if req.MinimumAvailability != nil {
+		minAvail := strings.TrimSpace(req.GetMinimumAvailability())
+		switch minAvail {
+		case "announced", "inCinemas", "released", "preDB":
+		default:
+			minAvail = "released"
+		}
+		sets = append(sets, `minimum_availability = ?`)
+		args = append(args, minAvail)
 	}
 	if len(sets) == 0 {
 		movie := m.getMovieLocked(ctx, req.GetMovieId())
@@ -1414,6 +1457,26 @@ func (m *Module) UpdateMetadata(ctx context.Context, req *mediaadminv1.UpdateMet
 				return nil, fmt.Errorf("update root_folder_path: %w", err)
 			}
 		}
+		if v, ok := meta["monitored"]; ok {
+			monitored := 0
+			if strings.EqualFold(strings.TrimSpace(v), "true") || v == "1" || strings.EqualFold(v, "yes") {
+				monitored = 1
+			}
+			if _, err := m.db.ExecContext(ctx, `UPDATE movies SET monitored=?, updated_at=? WHERE id=?`, monitored, now, req.GetId()); err != nil {
+				return nil, fmt.Errorf("update monitored: %w", err)
+			}
+		}
+		if v, ok := meta["minimum_availability"]; ok {
+			v = strings.TrimSpace(v)
+			switch v {
+			case "announced", "inCinemas", "released", "preDB":
+			default:
+				v = "released"
+			}
+			if _, err := m.db.ExecContext(ctx, `UPDATE movies SET minimum_availability=?, updated_at=? WHERE id=?`, v, now, req.GetId()); err != nil {
+				return nil, fmt.Errorf("update minimum_availability: %w", err)
+			}
+		}
 	}
 
 	row := m.db.QueryRowContext(ctx,
@@ -1580,6 +1643,7 @@ func (m *Module) movieToMediaItem(movie *mgmntv1.MovieItem) *mediaadminv1.MediaI
 		"monitored":          strconv.FormatBool(movie.GetMonitored()),
 		"quality_profile_id": movie.GetQualityProfileId(),
 		"root_folder_path":   movie.GetRootFolderPath(),
+		"minimum_availability": "released",
 	}
 	if movie.GetTagline() != "" {
 		meta["tagline"] = movie.GetTagline()

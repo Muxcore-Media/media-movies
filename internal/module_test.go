@@ -291,12 +291,16 @@ func TestUpdateMetadata(t *testing.T) {
 		Title:       "Fight Club (Updated)",
 		Description: "New description",
 		Year:        1999,
+		Metadata:    map[string]string{"monitored": "false"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if updated.Item.Title != "Fight Club (Updated)" {
 		t.Errorf("expected updated title, got %s", updated.Item.Title)
+	}
+	if updated.Item.Metadata["monitored"] != "false" {
+		t.Errorf("expected monitored=false, got %q", updated.Item.Metadata["monitored"])
 	}
 }
 

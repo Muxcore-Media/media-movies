@@ -22,6 +22,10 @@ service MovieManagementService {
   rpc ListAlternateTitles(ListAlternateTitlesRequest) returns (ListAlternateTitlesResponse);
   rpc AddAlternateTitle(AddAlternateTitleRequest) returns (AddAlternateTitleResponse);
   rpc RemoveAlternateTitle(RemoveAlternateTitleRequest) returns (RemoveAlternateTitleResponse);
+  rpc ListTrailers(ListTrailersRequest) returns (ListTrailersResponse);
+  rpc SetCollectionMonitored(SetCollectionMonitoredRequest) returns (SetCollectionMonitoredResponse);
+  rpc GetCollectionPrefs(GetCollectionPrefsRequest) returns (GetCollectionPrefsResponse);
+  rpc SyncCollection(SyncCollectionRequest) returns (SyncCollectionResponse);
 }
 
 message AddMovieRequest {
@@ -104,6 +108,7 @@ message UpdateMovieRequest {
   optional string quality_profile_id = 2;
   optional string root_folder_path = 3;
   optional bool monitored = 4;
+  optional string minimum_availability = 5;
 }
 
 message UpdateMovieResponse {
@@ -217,6 +222,7 @@ message CollectionSummary {
   int32 collection_id = 1;
   string name = 2;
   int32 movie_count = 3;
+  bool monitored = 4;
 }
 
 message GetCollectionMoviesRequest {
@@ -260,3 +266,50 @@ message RemoveAlternateTitleRequest {
 
 message RemoveAlternateTitleResponse {}
 
+message ListTrailersRequest {
+  string movie_id = 1;
+}
+
+message Trailer {
+  string name = 1;
+  string type = 2;
+  string url = 3;
+  string site = 4;
+}
+
+message ListTrailersResponse {
+  repeated Trailer trailers = 1;
+}
+
+message SetCollectionMonitoredRequest {
+  int32 collection_id = 1;
+  bool monitored = 2;
+  bool search_on_add = 3;
+  string quality_profile_id = 4;
+  string root_folder_path = 5;
+}
+
+message SetCollectionMonitoredResponse {}
+
+message GetCollectionPrefsRequest {
+  int32 collection_id = 1;
+}
+
+message GetCollectionPrefsResponse {
+  int32 collection_id = 1;
+  bool monitored = 2;
+  bool search_on_add = 3;
+  string quality_profile_id = 4;
+  string root_folder_path = 5;
+}
+
+message SyncCollectionRequest {
+  int32 collection_id = 1;
+  bool add_missing = 2; // add TMDB parts not in library
+}
+
+message SyncCollectionResponse {
+  int32 added = 1;
+  int32 already_present = 2;
+  int32 missing_on_tmdb = 3;
+}

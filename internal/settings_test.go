@@ -12,8 +12,15 @@ func TestSettingsImageDir(t *testing.T) {
 		ImageDir: filepath.Join(t.TempDir(), "images"),
 	})
 	defs := m.Settings()
-	if len(defs) != 1 || defs[0].Key != "image_dir" {
-		t.Fatalf("defs=%+v", defs)
+	foundImage := false
+	for _, d := range defs {
+		if d.Key == "image_dir" {
+			foundImage = true
+			break
+		}
+	}
+	if !foundImage {
+		t.Fatalf("missing image_dir in defs=%+v", defs)
 	}
 	next := filepath.Join(t.TempDir(), "images2")
 	if err := m.UpdateSetting("image_dir", next); err != nil {

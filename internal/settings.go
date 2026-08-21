@@ -19,6 +19,14 @@ func (m *Module) UpdateSetting(key, value string) error {
 func (m *Module) settingsDefs() []contracts.SettingDef {
 	return []contracts.SettingDef{
 		{
+			Key:         "db_path",
+			Label:       "Library Database Path",
+			Type:        contracts.SettingTypeString,
+			Value:       m.dbPath,
+			Description: "SQLite library path (MOVIES_DB_PATH); included in backups via Backupable / source dirs",
+			Group:       "Paths",
+		},
+		{
 			Key:         "image_dir",
 			Label:       "Artwork Image Directory",
 			Type:        contracts.SettingTypeString,

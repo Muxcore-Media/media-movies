@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.11] — 2026-08-20
+
+### Added
+- `ListTrailers` (TMDB videos), collection monitor prefs + `SyncCollection` auto-add.
+- `minimum_availability` metadata field; `ExportState`/`ImportState` Backupable; `backupable` capability.
+
+## [0.1.10] — 2026-08-20
+
+### Added
+- `UpdateMetadata` persists `monitored` for admin detail checkbox.
+
 ## [0.1.9] — 2026-08-10
 
 ### Added
