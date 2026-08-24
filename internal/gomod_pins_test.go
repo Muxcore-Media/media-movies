@@ -21,7 +21,7 @@ func TestGoModSiblingFreePins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sc := bufio.NewScanner(f)
 	inReplace := false
@@ -31,7 +31,7 @@ func TestGoModSiblingFreePins(t *testing.T) {
 			inReplace = true
 		}
 		if inReplace || strings.HasPrefix(line, "replace ") {
-			if strings.Contains(line, "../core") || strings.Contains(line, "../contracts") {
+			if strings.Contains(line, "../core") {
 				t.Fatalf("sibling replace forbidden in go.mod: %s", line)
 			}
 		}

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	metadatav1 "github.com/Muxcore-Media/contracts-metadata/muxcore/metadata/v1"
+	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 )
 
 func (m *Module) ListTrailers(ctx context.Context, req *mgmntv1.ListTrailersRequest) (*mgmntv1.ListTrailersResponse, error) {

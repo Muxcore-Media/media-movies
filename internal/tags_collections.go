@@ -55,7 +55,7 @@ func (m *Module) ListTags(ctx context.Context, req *mgmntv1.ListTagsRequest) (*m
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var tags []*mgmntv1.Tag
 	for rows.Next() {
 		var id, label, created string
@@ -108,7 +108,7 @@ func (m *Module) ListCollections(ctx context.Context, req *mgmntv1.ListCollectio
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []*mgmntv1.CollectionSummary
 	for rows.Next() {
 		var id, count, monitored int32
@@ -148,7 +148,7 @@ func (m *Module) GetCollectionMovies(ctx context.Context, req *mgmntv1.GetCollec
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var movies []*mgmntv1.MovieItem
 	for rows.Next() {
 		movie := m.scanMovieWithCollection(rows)

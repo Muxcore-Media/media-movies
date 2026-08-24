@@ -22,14 +22,14 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
+	automationv1 "github.com/Muxcore-Media/contracts-automation/muxcore/automation/v1"
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
+	metadatav1 "github.com/Muxcore-Media/contracts-metadata/muxcore/metadata/v1"
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	"github.com/Muxcore-Media/core/sdk/go/client"
 	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
-	automationv1 "github.com/Muxcore-Media/contracts-automation/muxcore/automation/v1"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
-	metadatav1 "github.com/Muxcore-Media/contracts-metadata/muxcore/metadata/v1"
 	_ "modernc.org/sqlite"
 )
 
@@ -158,7 +158,7 @@ func (m *Module) Init(ctx context.Context) error {
 	db.SetMaxOpenConns(1)
 
 	if _, err := db.ExecContext(ctx, `PRAGMA journal_mode=WAL`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("enable WAL: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
@@ -185,7 +185,7 @@ func (m *Module) Init(ctx context.Context) error {
 			updated_at   TEXT NOT NULL
 		)
 	`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("create movies table: %w", err)
 	}
 	for _, col := range []string{
@@ -196,7 +196,7 @@ func (m *Module) Init(ctx context.Context) error {
 		`ALTER TABLE movies ADD COLUMN minimum_availability TEXT DEFAULT 'released'`,
 	} {
 		if _, err := db.ExecContext(ctx, col); err != nil && !strings.Contains(err.Error(), "duplicate column") {
-			db.Close()
+			_ = db.Close()
 			return fmt.Errorf("migrate movies: %w", err)
 		}
 	}
@@ -212,13 +212,13 @@ func (m *Module) Init(ctx context.Context) error {
 			FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
 		)
 	`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("create movie_files table: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
 		CREATE INDEX IF NOT EXISTS idx_movies_title ON movies(title)
 	`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("create index: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
@@ -228,7 +228,7 @@ func (m *Module) Init(ctx context.Context) error {
 			created_at TEXT NOT NULL
 		)
 	`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("create tags table: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
@@ -238,13 +238,13 @@ func (m *Module) Init(ctx context.Context) error {
 			PRIMARY KEY (item_id, tag_id)
 		)
 	`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("create item_tags table: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `
 		CREATE INDEX IF NOT EXISTS idx_movie_files_movie ON movie_files(movie_id)
 	`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("create files index: %w", err)
 	}
 
@@ -252,17 +252,17 @@ func (m *Module) Init(ctx context.Context) error {
 	m.db = db
 	if err := m.ensureHistoryTable(ctx); err != nil {
 		m.mu.Unlock()
-		db.Close()
+		_ = db.Close()
 		return err
 	}
 	if err := m.ensureMovieTitlesTable(ctx); err != nil {
 		m.mu.Unlock()
-		db.Close()
+		_ = db.Close()
 		return err
 	}
 	if err := m.ensureCollectionPrefs(ctx); err != nil {
 		m.mu.Unlock()
-		db.Close()
+		_ = db.Close()
 		return err
 	}
 	m.backfillMovieTitles(ctx)
@@ -270,14 +270,14 @@ func (m *Module) Init(ctx context.Context) error {
 
 	grpcLis, err := net.Listen("tcp", m.grpcAddr)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("listen gRPC %s: %w", m.grpcAddr, err)
 	}
 	m.grpcLis = grpcLis
 
 	httpLis, err := net.Listen("tcp", m.httpAddr)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return fmt.Errorf("listen HTTP %s: %w", m.httpAddr, err)
 	}
 	m.httpLis = httpLis
@@ -324,7 +324,7 @@ func (m *Module) Start(ctx context.Context) error {
 
 func (m *Module) Stop(ctx context.Context) error {
 	if m.httpSrv != nil {
-		m.httpSrv.Shutdown(ctx)
+		_ = m.httpSrv.Shutdown(ctx)
 	}
 	if m.grpcSrv != nil {
 		m.grpcSrv.GracefulStop()
@@ -333,11 +333,11 @@ func (m *Module) Stop(ctx context.Context) error {
 		_ = m.rootsConn.Close()
 	}
 	if m.mc != nil {
-		m.mc.Close()
+		_ = m.mc.Close()
 	}
 	m.mu.Lock()
 	if m.db != nil {
-		m.db.Close()
+		_ = m.db.Close()
 		m.db = nil
 	}
 	m.mu.Unlock()
@@ -514,7 +514,7 @@ func (m *Module) findMovieID(tmdbID int32, title string, year int32) string {
 	if err != nil {
 		return ""
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var rowID string
 		var rowYear int32
@@ -537,7 +537,7 @@ func (m *Module) searchMovieMetadata(ctx context.Context, title string, year int
 	if err != nil {
 		return nil, fmt.Errorf("dial metadata: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	metaClient := metadatav1.NewMetadataServiceClient(conn)
 	resp, err := metaClient.Search(ctx, &metadatav1.SearchRequest{
@@ -647,7 +647,7 @@ func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*m
 	}
 
 	var existingID string
-		if req.GetTmdbId() != 0 {
+	if req.GetTmdbId() != 0 {
 		_ = m.db.QueryRowContext(ctx, `SELECT id FROM movies WHERE tmdb_id = ? LIMIT 1`, req.GetTmdbId()).Scan(&existingID)
 		if existingID != "" {
 			m.backfillMovieArtworkIfEmptyLocked(ctx, existingID, req.GetPosterPath(), req.GetBackdropPath())
@@ -813,7 +813,7 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 
 	var tmdbID int
 	var title, rootFolder string
-	m.db.QueryRowContext(ctx, `SELECT tmdb_id, title, COALESCE(root_folder_path, '') FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &title, &rootFolder)
+	_ = m.db.QueryRowContext(ctx, `SELECT tmdb_id, title, COALESCE(root_folder_path, '') FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &title, &rootFolder)
 
 	if req.GetDeleteFiles() {
 		rows, err := m.db.QueryContext(ctx, `SELECT DISTINCT file_path FROM movie_files WHERE movie_id = ?`, req.GetMovieId())
@@ -824,7 +824,7 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 					_ = safeDeleteMediaFile(p, rootFolder)
 				}
 			}
-			rows.Close()
+			_ = rows.Close()
 		}
 	}
 
@@ -835,9 +835,9 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 		Data:      map[string]any{"tmdb_id": tmdbID, "delete_files": req.GetDeleteFiles()},
 	})
 
-	m.db.ExecContext(ctx, `DELETE FROM item_tags WHERE item_id = ?`, req.GetMovieId())
-	m.db.ExecContext(ctx, `DELETE FROM movie_titles WHERE movie_id = ?`, req.GetMovieId())
-	m.db.ExecContext(ctx, `DELETE FROM movie_files WHERE movie_id = ?`, req.GetMovieId())
+	_, _ = m.db.ExecContext(ctx, `DELETE FROM item_tags WHERE item_id = ?`, req.GetMovieId())
+	_, _ = m.db.ExecContext(ctx, `DELETE FROM movie_titles WHERE movie_id = ?`, req.GetMovieId())
+	_, _ = m.db.ExecContext(ctx, `DELETE FROM movie_files WHERE movie_id = ?`, req.GetMovieId())
 	_, err := m.db.ExecContext(ctx, `DELETE FROM movies WHERE id = ?`, req.GetMovieId())
 	if err != nil {
 		return nil, fmt.Errorf("delete movie: %w", err)
@@ -855,7 +855,7 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 	m.mu.RLock()
 	var tmdbID int32
 	var movieTitle string
-	m.db.QueryRowContext(ctx, `SELECT tmdb_id, title FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &movieTitle)
+	_ = m.db.QueryRowContext(ctx, `SELECT tmdb_id, title FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &movieTitle)
 	m.mu.RUnlock()
 
 	if tmdbID == 0 {
@@ -871,7 +871,7 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 	if err != nil {
 		return nil, fmt.Errorf("dial metadata: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	metaClient := metadatav1.NewMetadataServiceClient(conn)
 	details, err := metaClient.GetMovieDetails(ctx, &metadatav1.GetMovieDetailsRequest{
@@ -980,7 +980,7 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 	}
 
 	var total int
-	m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	_ = m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
 
 	sortBy := req.GetSortBy()
 	if sortBy == "" {
@@ -1005,7 +1005,7 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 	if err != nil {
 		return nil, fmt.Errorf("query movies: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var movies []*mgmntv1.MovieItem
 	for rows.Next() {
@@ -1050,7 +1050,7 @@ func (m *Module) ListMissing(ctx context.Context, req *mgmntv1.ListMissingReques
 	if err != nil {
 		return nil, fmt.Errorf("query missing movies: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*mgmntv1.MissingMovieItem
 	for rows.Next() {
@@ -1108,7 +1108,7 @@ func (m *Module) scanMovie(rows *sql.Rows) *mgmntv1.MovieItem {
 	}
 
 	var genres []string
-	json.Unmarshal([]byte(genresStr), &genres)
+	_ = json.Unmarshal([]byte(genresStr), &genres)
 	if genres == nil {
 		genres = []string{}
 	}
@@ -1142,7 +1142,7 @@ func (m *Module) scanMovieWithCollection(rows *sql.Rows) *mgmntv1.MovieItem {
 	}
 
 	var genres []string
-	json.Unmarshal([]byte(genresStr), &genres)
+	_ = json.Unmarshal([]byte(genresStr), &genres)
 	if genres == nil {
 		genres = []string{}
 	}
@@ -1175,7 +1175,7 @@ func (m *Module) scanSingle(row *sql.Row) *mgmntv1.MovieItem {
 	}
 
 	var genres []string
-	json.Unmarshal([]byte(genresStr), &genres)
+	_ = json.Unmarshal([]byte(genresStr), &genres)
 	if genres == nil {
 		genres = []string{}
 	}
@@ -1213,7 +1213,7 @@ func (m *Module) AddFile(ctx context.Context, req *mgmntv1.AddFileRequest) (*mgm
 		return nil, fmt.Errorf("insert file: %w", err)
 	}
 
-	m.db.ExecContext(ctx, `UPDATE movies SET has_file = 1, updated_at = ? WHERE id = ?`, now, req.GetMovieId())
+	_, _ = m.db.ExecContext(ctx, `UPDATE movies SET has_file = 1, updated_at = ? WHERE id = ?`, now, req.GetMovieId())
 
 	var title string
 	_ = m.db.QueryRowContext(ctx, `SELECT title FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&title)
@@ -1241,7 +1241,7 @@ func (m *Module) RemoveFile(ctx context.Context, req *mgmntv1.RemoveFileRequest)
 	}
 
 	var movieID, filePath, quality string
-	m.db.QueryRowContext(ctx, `SELECT movie_id, file_path, COALESCE(quality, '') FROM movie_files WHERE id = ?`, req.GetFileId()).Scan(&movieID, &filePath, &quality)
+	_ = m.db.QueryRowContext(ctx, `SELECT movie_id, file_path, COALESCE(quality, '') FROM movie_files WHERE id = ?`, req.GetFileId()).Scan(&movieID, &filePath, &quality)
 
 	var title string
 	if movieID != "" {
@@ -1271,9 +1271,9 @@ func (m *Module) RemoveFile(ctx context.Context, req *mgmntv1.RemoveFileRequest)
 	}
 
 	var remaining int
-	m.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM movie_files WHERE movie_id = ?`, movieID).Scan(&remaining)
+	_ = m.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM movie_files WHERE movie_id = ?`, movieID).Scan(&remaining)
 	if remaining == 0 {
-		m.db.ExecContext(ctx, `UPDATE movies SET has_file = 0, updated_at = ? WHERE id = ?`, time.Now().UTC().Format(time.RFC3339), movieID)
+		_, _ = m.db.ExecContext(ctx, `UPDATE movies SET has_file = 0, updated_at = ? WHERE id = ?`, time.Now().UTC().Format(time.RFC3339), movieID)
 	}
 
 	go m.publish(context.Background(), contracts.EventMovieFileRemoved, map[string]interface{}{
@@ -1295,7 +1295,7 @@ func (m *Module) ListFiles(ctx context.Context, req *mgmntv1.ListFilesRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("query files: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var files []*mgmntv1.MovieFile
 	for rows.Next() {
@@ -1380,7 +1380,7 @@ func (m *Module) ListItems(ctx context.Context, req *mediaadminv1.ListItemsReque
 	}
 
 	var total int
-	m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	_ = m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
 
 	query += fmt.Sprintf(` ORDER BY %s %s LIMIT ? OFFSET ?`, sortBy, sortOrder)
 	qargs := append(args, pageSize, offset)
@@ -1389,7 +1389,7 @@ func (m *Module) ListItems(ctx context.Context, req *mediaadminv1.ListItemsReque
 	if err != nil {
 		return nil, fmt.Errorf("query items: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []*mediaadminv1.MediaItem
 	for rows.Next() {
@@ -1634,15 +1634,15 @@ func (m *Module) ReplaceArtwork(stream mediaadminv1.MediaAdminService_ReplaceArt
 
 func (m *Module) movieToMediaItem(movie *mgmntv1.MovieItem) *mediaadminv1.MediaItem {
 	meta := map[string]string{
-		"tmdb_id":            strconv.Itoa(int(movie.GetTmdbId())),
-		"runtime":            strconv.Itoa(int(movie.GetRuntime())),
-		"vote_avg":           fmt.Sprintf("%.1f", movie.GetVoteAverage()),
-		"imdb_id":            movie.GetImdbId(),
-		"status":             movie.GetStatus(),
-		"has_file":           strconv.FormatBool(movie.GetHasFile()),
-		"monitored":          strconv.FormatBool(movie.GetMonitored()),
-		"quality_profile_id": movie.GetQualityProfileId(),
-		"root_folder_path":   movie.GetRootFolderPath(),
+		"tmdb_id":              strconv.Itoa(int(movie.GetTmdbId())),
+		"runtime":              strconv.Itoa(int(movie.GetRuntime())),
+		"vote_avg":             fmt.Sprintf("%.1f", movie.GetVoteAverage()),
+		"imdb_id":              movie.GetImdbId(),
+		"status":               movie.GetStatus(),
+		"has_file":             strconv.FormatBool(movie.GetHasFile()),
+		"monitored":            strconv.FormatBool(movie.GetMonitored()),
+		"quality_profile_id":   movie.GetQualityProfileId(),
+		"root_folder_path":     movie.GetRootFolderPath(),
 		"minimum_availability": "released",
 	}
 	if movie.GetTagline() != "" {
@@ -1714,7 +1714,7 @@ func (m *Module) handleStreamMovie(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	st, err := f.Stat()
 	if err != nil || st.IsDir() {

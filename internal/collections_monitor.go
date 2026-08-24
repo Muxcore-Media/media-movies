@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	metadatav1 "github.com/Muxcore-Media/contracts-metadata/muxcore/metadata/v1"
+	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 )
 
 func (m *Module) ensureCollectionPrefs(ctx context.Context) error {
@@ -89,8 +89,8 @@ func (m *Module) GetCollectionPrefs(ctx context.Context, req *mgmntv1.GetCollect
 	}
 	return &mgmntv1.GetCollectionPrefsResponse{
 		CollectionId:     req.GetCollectionId(),
-		Monitored:         monitored != 0,
-		SearchOnAdd:       searchOnAdd != 0,
+		Monitored:        monitored != 0,
+		SearchOnAdd:      searchOnAdd != 0,
 		QualityProfileId: profile,
 		RootFolderPath:   root,
 	}, nil
@@ -164,12 +164,12 @@ func (m *Module) SyncCollection(ctx context.Context, req *mgmntv1.SyncCollection
 			continue
 		}
 		resp, err := m.AddMovie(ctx, &mgmntv1.AddMovieRequest{
-			TmdbId:            p.tmdbID,
-			Title:             p.title,
-			Year:              extractYear(p.releaseDate),
-			Overview:          p.overview,
-			PosterPath:        p.poster,
-			BackdropPath:      p.backdrop,
+			TmdbId:           p.tmdbID,
+			Title:            p.title,
+			Year:             extractYear(p.releaseDate),
+			Overview:         p.overview,
+			PosterPath:       p.poster,
+			BackdropPath:     p.backdrop,
 			QualityProfileId: profile,
 			RootFolderPath:   root,
 		})

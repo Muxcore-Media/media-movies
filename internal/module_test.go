@@ -33,7 +33,7 @@ func newTestModule(t *testing.T) *Module {
 	if err := m.Init(ctx); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	t.Cleanup(func() { m.Stop(ctx) })
+	t.Cleanup(func() { _ = m.Stop(ctx) })
 	return m
 }
 
@@ -98,8 +98,8 @@ func TestAddDuplicateTMDBID(t *testing.T) {
 	m := newTestModule(t)
 	ctx := context.Background()
 
-	m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 550, Title: "Fight Club", Year: 1999})
-	m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 550, Title: "Fight Club", Year: 1999})
+	_, _ = m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 550, Title: "Fight Club", Year: 1999})
+	_, _ = m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 550, Title: "Fight Club", Year: 1999})
 
 	movies, err := m.ListMovies(ctx, &mgmntv1.ListMoviesRequest{})
 	if err != nil {
@@ -159,7 +159,7 @@ func TestRemoveMovieDeleteFiles(t *testing.T) {
 		t.Fatal("delete_files=false must leave file")
 	}
 
-	fileResp, err = m.AddFile(ctx, &mgmntv1.AddFileRequest{MovieId: add.MovieId, FilePath: f, Quality: "1080p"})
+	_, err = m.AddFile(ctx, &mgmntv1.AddFileRequest{MovieId: add.MovieId, FilePath: f, Quality: "1080p"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestListMoviesPagination(t *testing.T) {
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
-		m.AddMovie(ctx, &mgmntv1.AddMovieRequest{
+		_, _ = m.AddMovie(ctx, &mgmntv1.AddMovieRequest{
 			TmdbId: int32(100 + i),
 			Title:  fmt.Sprintf("Movie %d", i+1),
 			Year:   2000 + int32(i),
@@ -208,9 +208,9 @@ func TestSearchMovies(t *testing.T) {
 	m := newTestModule(t)
 	ctx := context.Background()
 
-	m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 1, Title: "The Matrix", Year: 1999})
-	m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 2, Title: "The Matrix Reloaded", Year: 2003})
-	m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 3, Title: "Inception", Year: 2010})
+	_, _ = m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 1, Title: "The Matrix", Year: 1999})
+	_, _ = m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 2, Title: "The Matrix Reloaded", Year: 2003})
+	_, _ = m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 3, Title: "Inception", Year: 2010})
 
 	resp, err := m.ListMovies(ctx, &mgmntv1.ListMoviesRequest{Search: "matrix"})
 	if err != nil {
@@ -248,7 +248,7 @@ func TestListItems(t *testing.T) {
 	m := newTestModule(t)
 	ctx := context.Background()
 
-	m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 1, Title: "Test Movie", Year: 2020})
+	_, _ = m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 1, Title: "Test Movie", Year: 2020})
 
 	resp, err := m.ListItems(ctx, &mediaadminv1.ListItemsRequest{Page: 1, PageSize: 20})
 	if err != nil {
@@ -321,7 +321,7 @@ func TestListArtwork(t *testing.T) {
 	}
 
 	m.mu.Lock()
-	m.db.ExecContext(ctx,
+	_, _ = m.db.ExecContext(ctx,
 		`INSERT INTO movies (id, tmdb_id, title, year, poster_path, backdrop_path, monitored, created_at, updated_at)
 		 VALUES ('test123', 1, 'Test', 2020, ?, ?, 1, 'now', 'now')`, relPoster, relBackdrop)
 	m.mu.Unlock()
@@ -728,7 +728,7 @@ func TestTagsAndCollections(t *testing.T) {
 	}
 
 	m.mu.Lock()
-	m.db.ExecContext(ctx, `UPDATE movies SET collection_id=10, collection_name='Fight Club Collection' WHERE id=?`, add.MovieId)
+	_, _ = m.db.ExecContext(ctx, `UPDATE movies SET collection_id=10, collection_name='Fight Club Collection' WHERE id=?`, add.MovieId)
 	m.mu.Unlock()
 
 	cols, err := m.ListCollections(ctx, &mgmntv1.ListCollectionsRequest{})
@@ -788,7 +788,7 @@ func TestMediaAdminLibraryAdapters(t *testing.T) {
 	}
 
 	m.mu.Lock()
-	m.db.ExecContext(ctx, `UPDATE movies SET collection_id=10, collection_name='Fight Club Collection' WHERE id=?`, add.MovieId)
+	_, _ = m.db.ExecContext(ctx, `UPDATE movies SET collection_id=10, collection_name='Fight Club Collection' WHERE id=?`, add.MovieId)
 	m.mu.Unlock()
 
 	cols, err := s.ListCollections(ctx, &mediaadminv1.ListCollectionsRequest{})
