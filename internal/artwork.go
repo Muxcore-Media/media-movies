@@ -135,7 +135,7 @@ func (m *Module) cacheRemoteArtwork(ctx context.Context, itemID, kind, remoteURL
 	if err != nil {
 		return "", "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("download artwork: status %d", resp.StatusCode)
 	}

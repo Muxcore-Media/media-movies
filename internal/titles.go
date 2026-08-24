@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	metadatav1 "github.com/Muxcore-Media/contracts-metadata/muxcore/metadata/v1"
+	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 )
 
 const (
@@ -84,7 +84,7 @@ func (m *Module) backfillMovieTitles(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var id, title, original string
 		if err := rows.Scan(&id, &title, &original); err != nil {
@@ -171,7 +171,7 @@ func (m *Module) fetchMovieAlternativeTitles(ctx context.Context, tmdbID int32) 
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	resp, err := metadatav1.NewMetadataServiceClient(conn).GetAlternativeTitles(ctx, &metadatav1.GetAlternativeTitlesRequest{
 		TmdbId: tmdbID,
@@ -205,7 +205,7 @@ func (m *Module) ListAlternateTitles(ctx context.Context, req *mgmntv1.ListAlter
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var titles []*mgmntv1.AlternateTitle
 	for rows.Next() {
 		var id, title, clean, source string

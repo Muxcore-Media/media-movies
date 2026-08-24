@@ -192,7 +192,7 @@ func (m *Module) ListHistory(ctx context.Context, req *mediaadminv1.ListHistoryR
 	if err != nil {
 		return nil, fmt.Errorf("query history: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var records []*mediaadminv1.HistoryRecord
 	for rows.Next() {

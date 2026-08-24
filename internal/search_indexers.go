@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
-	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 	automationv1 "github.com/Muxcore-Media/contracts-automation/muxcore/automation/v1"
+	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 )
 
 const capMediaAutomation = "media.automation"
@@ -81,7 +81,7 @@ func (m *Module) automationSearchItem(ctx context.Context, req *automationv1.Sea
 	if err != nil {
 		return nil, fmt.Errorf("dial automation: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	return automationv1.NewAutomationServiceClient(conn).SearchItem(ctx, req)
 }
 
