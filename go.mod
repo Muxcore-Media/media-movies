@@ -31,3 +31,11 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
+
+replace github.com/Muxcore-Media/core => ../core
+
+replace github.com/Muxcore-Media/core/pkg/contracts => ../core/pkg/contracts
+
+replace github.com/Muxcore-Media/core/sdk/go/module => ../core/sdk/go/module
+
+replace github.com/Muxcore-Media/core/sdk/go/client => ../core/sdk/go/client
