@@ -38,6 +38,8 @@ message AddMovieRequest {
   repeated string genres = 7;
   string quality_profile_id = 8;
   string root_folder_path = 9;
+  string minimum_availability = 10;
+  string release_date = 11;
 }
 
 message AddMovieResponse {
@@ -140,6 +142,8 @@ message MovieItem {
   string root_folder_path = 22;
   int32 collection_id = 23;
   string collection_name = 24;
+  string minimum_availability = 25;
+  string release_date = 26;
 }
 
 message AddFileRequest {

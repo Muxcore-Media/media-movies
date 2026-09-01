@@ -5,17 +5,19 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	metadatav1 "github.com/Muxcore-Media/contracts-metadata/muxcore/metadata/v1"
 )
 
 func (m *Module) metadataClient(ctx context.Context) (metadatav1.MetadataServiceClient, func(), error) {
+	if m.metadataClientFn != nil {
+		return m.metadataClientFn(ctx)
+	}
 	metaAddr, err := m.findMetadataAddr(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	conn, err := grpc.NewClient(metaAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(metaAddr, meshGRPCDialOpts()...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("dial metadata: %w", err)
 	}

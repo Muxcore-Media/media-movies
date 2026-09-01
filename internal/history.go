@@ -85,8 +85,7 @@ func (m *Module) appendHistory(ctx context.Context, e historyEntry) {
 }
 
 func (m *Module) subscribeToDownloadDispatched() {
-	time.Sleep(15 * time.Second)
-	if m.mc == nil {
+	if !m.waitForCoreClient(context.Background()) {
 		return
 	}
 	ch, cancel, err := m.mc.Events.Subscribe(context.Background(), contracts.EventDownloadDispatched)

@@ -31,7 +31,7 @@ func TestGoModSiblingFreePins(t *testing.T) {
 			inReplace = true
 		}
 		if inReplace || strings.HasPrefix(line, "replace ") {
-			if strings.Contains(line, "../core") {
+			if strings.Contains(line, "../") {
 				t.Fatalf("sibling replace forbidden in go.mod: %s", line)
 			}
 		}

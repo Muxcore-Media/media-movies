@@ -3,9 +3,9 @@ module github.com/Muxcore-Media/media-movies
 go 1.26.4
 
 require (
-	github.com/Muxcore-Media/contracts-automation v0.1.0
+	github.com/Muxcore-Media/contracts-automation v0.1.1-0.20260824174909-b7b0cb83d8b3
 	github.com/Muxcore-Media/contracts-media-admin v0.1.0
-	github.com/Muxcore-Media/contracts-metadata v0.1.0
+	github.com/Muxcore-Media/contracts-metadata v0.1.1-0.20260824175102-c62591db5268
 	github.com/Muxcore-Media/core/pkg/contracts v0.5.8
 	github.com/Muxcore-Media/core/sdk/go/client v0.5.2
 	github.com/Muxcore-Media/core/sdk/go/module v0.5.2
@@ -31,9 +31,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
-
-replace github.com/Muxcore-Media/contracts-scanner => ../contracts-scanner
-
-replace github.com/Muxcore-Media/contracts-automation => ../contracts-automation
-
-replace github.com/Muxcore-Media/contracts-metadata => ../contracts-metadata

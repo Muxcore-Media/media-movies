@@ -42,6 +42,19 @@ func (m *Module) ImportState(ctx context.Context, data []byte) error {
 		return fmt.Errorf("reopen sqlite: %w", err)
 	}
 	db.SetMaxOpenConns(1)
+	if err := m.finishDatabaseOpen(ctx, db); err != nil {
+		_ = db.Close()
+		return err
+	}
 	m.db = db
+	return nil
+}
+
+// BackupExtraPaths returns filesystem paths operators should include in
+// BACKUP_SOURCE_DIRS alongside the SQLite export from ExportState.
+func (m *Module) BackupExtraPaths() []string {
+	if dir := m.getImageDir(); dir != "" {
+		return []string{dir}
+	}
 	return nil
 }

@@ -7,8 +7,9 @@ MuxCore sidecar module (`media-movies`). Workspace deploy and SSH: [`../AGENTS.m
 | Field | Value |
 |-------|-------|
 | Directory | `media-movies` |
-| Capabilities | see muxcore.json |
-| Contracts | none declared |
+| Version | `0.1.11` (see `muxcore.json`) |
+| Capabilities | `media.library`, `media.library.movies`, `settings`, `backupable` |
+| Contracts | `MediaAdminService` (`contracts-media-admin` v0.1.0) |
 
 ## Agent rules
 
@@ -23,4 +24,5 @@ MuxCore sidecar module (`media-movies`). Workspace deploy and SSH: [`../AGENTS.m
 ```bash
 cd media-movies
 go test ./...
+make lint
 ```

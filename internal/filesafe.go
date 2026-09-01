@@ -1,10 +1,35 @@
 package internal
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+func pathUnderRoot(path, root string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve path: %w", err)
+	}
+	abs = filepath.Clean(abs)
+	rootAbs, err := filepath.Abs(filepath.Clean(root))
+	if err != nil {
+		return "", fmt.Errorf("resolve root: %w", err)
+	}
+	rel, err := filepath.Rel(rootAbs, abs)
+	if err != nil {
+		return "", fmt.Errorf("path %q is outside root", abs)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path %q is outside root", abs)
+	}
+	return abs, nil
+}
 
 func safeDeleteMediaFile(filePath, rootFolder string) error {
 	if filePath == "" {

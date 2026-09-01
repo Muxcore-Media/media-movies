@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
 )
@@ -90,7 +89,7 @@ func (m *Module) ensureRoots(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, meshGRPCDialOpts()...)
 	if err != nil {
 		return fmt.Errorf("dial roots: %w", err)
 	}

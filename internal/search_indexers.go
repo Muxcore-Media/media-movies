@@ -7,7 +7,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	automationv1 "github.com/Muxcore-Media/contracts-automation/muxcore/automation/v1"
@@ -100,10 +99,6 @@ func (m *Module) findAutomationAddr(ctx context.Context) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no %s module found", capMediaAutomation)
-}
-
-func meshGRPCDialOpts() []grpc.DialOption {
-	return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 }
 
 func emptySearchIndexersResponse() *mediaadminv1.SearchIndexersResponse {

@@ -1,7 +1,15 @@
+github.com/Muxcore-Media/contracts-automation v0.1.0 h1:YF3QugBsvO7goBF2RwoLsoMJi/lv98b6UWKNsQlKv1c=
+github.com/Muxcore-Media/contracts-automation v0.1.0/go.mod h1:yXHkQf5SReaAfsGl3UWQaZ/FiAXmViKGao5Rzf46v64=
+github.com/Muxcore-Media/contracts-automation v0.1.1-0.20260824174909-b7b0cb83d8b3 h1:K/7kElDD1sgP0lf1X6Q5mp+2PEJ23WkhuKxu4LGrJds=
+github.com/Muxcore-Media/contracts-automation v0.1.1-0.20260824174909-b7b0cb83d8b3/go.mod h1:HWpgvkMDZwf/2YFAndQ9NDTkynEtnRML4SOuZ6/SRNE=
 github.com/Muxcore-Media/contracts-media v0.1.0 h1:kjUfy9U5nPvImjAnfGpiLjRxp739YH2eA93c+tZ7nW8=
 github.com/Muxcore-Media/contracts-media v0.1.0/go.mod h1:cYmz14RYUL0VxnVRNSCz0n1HOjjL1yzbpDWdWdkd+BI=
 github.com/Muxcore-Media/contracts-media-admin v0.1.0 h1:HaT4FiI0wTzGRO3w62Ln5CuPH9W/f1cUvg+WAsoZ4fk=
 github.com/Muxcore-Media/contracts-media-admin v0.1.0/go.mod h1:FnXzE5nlrbgdRdlSiQlJ/xW6bJh5WWf+J2Q6BcOPp5M=
+github.com/Muxcore-Media/contracts-metadata v0.1.0 h1:1C9Hcu9RVyP74pUvJ9aFLAzY72gfZBVozi9jDVZfBMI=
+github.com/Muxcore-Media/contracts-metadata v0.1.0/go.mod h1:7xYyd7Tf3ixBzJrHausHBsjM8X/DLmnu0Gwal2CvAso=
+github.com/Muxcore-Media/contracts-metadata v0.1.1-0.20260824175102-c62591db5268 h1:+Ehaw8I/xZYeLEcZc7Bs+0tJShp4W/eJWkdBn8YOTSs=
+github.com/Muxcore-Media/contracts-metadata v0.1.1-0.20260824175102-c62591db5268/go.mod h1:z1q8wH0cRsngXYxoWI/MCuV99oGROQrco5FygHlAp1s=
 github.com/Muxcore-Media/core v0.5.8 h1:4mwv7rvtbe5gv+IbI5Rv1mwnXo24Emt7u1QEwmL9fvo=
 github.com/Muxcore-Media/core v0.5.8/go.mod h1:RVDaKMkaFPIjCza6XE+q1ex4ir5yRLSHsy4ROfwyOMg=
 github.com/Muxcore-Media/core/pkg/contracts v0.5.8 h1:u96Dwv7ENSFemoeuApau1d6vt8Mkk9UlwKd6vosOfQg=

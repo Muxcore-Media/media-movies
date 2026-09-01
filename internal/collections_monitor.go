@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	automationv1 "github.com/Muxcore-Media/contracts-automation/muxcore/automation/v1"
 	metadatav1 "github.com/Muxcore-Media/contracts-metadata/muxcore/metadata/v1"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 )
@@ -118,10 +119,11 @@ func (m *Module) SyncCollection(ctx context.Context, req *mgmntv1.SyncCollection
 	}
 	_ = m.ensureCollectionPrefs(ctx)
 	var profile, root string
+	var searchOnAdd int
 	_ = m.db.QueryRowContext(ctx,
-		`SELECT quality_profile_id, root_folder_path FROM collection_prefs WHERE collection_id=?`,
+		`SELECT quality_profile_id, root_folder_path, search_on_add FROM collection_prefs WHERE collection_id=?`,
 		req.GetCollectionId(),
-	).Scan(&profile, &root)
+	).Scan(&profile, &root, &searchOnAdd)
 
 	type partInfo struct {
 		tmdbID       int32
@@ -183,6 +185,15 @@ func (m *Module) SyncCollection(ctx context.Context, req *mgmntv1.SyncCollection
 			req.GetCollectionId(), coll.GetName(), resp.GetMovieId(),
 		)
 		m.mu.Unlock()
+		if searchOnAdd != 0 {
+			_, _ = m.automationSearchItem(ctx, &automationv1.SearchItemRequest{
+				ItemType:         "movie",
+				Query:            p.title,
+				TmdbId:           p.tmdbID,
+				Year:             extractYear(p.releaseDate),
+				QualityProfileId: profile,
+			})
+		}
 	}
 	return &mgmntv1.SyncCollectionResponse{
 		Added:          int32(added),
