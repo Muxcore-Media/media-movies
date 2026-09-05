@@ -19,6 +19,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	"github.com/Muxcore-Media/core/sdk/go/client"
 	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
+	"github.com/Muxcore-Media/media-movies/internal/grpctls"
 	automationv1 "github.com/Muxcore-Media/media-automation/proto/automationv1"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
@@ -84,6 +86,7 @@ func NewModule(cfg Config) *Module {
 			cfg.GRPCAddr = v
 		}
 	}
+	cfg.GRPCAddr = resolveGRPCAddr(cfg.GRPCAddr)
 	if cfg.AnnounceAddr == "" {
 		if v := os.Getenv("MOVIES_ANNOUNCE_ADDR"); v != "" {
 			cfg.AnnounceAddr = v
@@ -104,7 +107,7 @@ func NewModule(cfg Config) *Module {
 		cfg.DBPath = "/var/lib/media-movies/movies.db"
 	}
 	if cfg.GRPCAddr == "" {
-		cfg.GRPCAddr = ":9420"
+		cfg.GRPCAddr = "127.0.0.1:9420"
 	}
 	if cfg.AnnounceAddr == "" {
 		cfg.AnnounceAddr = cfg.GRPCAddr
@@ -285,7 +288,21 @@ func (m *Module) Init(ctx context.Context) error {
 }
 
 func (m *Module) Start(ctx context.Context) error {
-	m.grpcSrv = grpc.NewServer()
+	var grpcOpts []grpc.ServerOption
+	tlsCfg, err := grpctls.ServerConfig()
+	if err != nil {
+		return fmt.Errorf("gRPC TLS: %w", err)
+	}
+	if tlsCfg != nil {
+		grpcOpts = append(grpcOpts, grpc.Creds(credentials.NewTLS(tlsCfg)))
+		slog.Info("media-movies gRPC TLS enabled", "addr", m.grpcAddr)
+	} else {
+		slog.Warn("media-movies gRPC listening without TLS (dev only)",
+			"addr", m.grpcAddr,
+			"hint", "unset MUXCORE_INSECURE_DISABLE_TLS for production",
+		)
+	}
+	m.grpcSrv = grpc.NewServer(grpcOpts...)
 	mediaadminv1.RegisterMediaAdminServiceServer(m.grpcSrv, mediaAdminServer{m: m})
 	mgmntv1.RegisterMovieManagementServiceServer(m.grpcSrv, m)
 	modulesdk.RegisterSettings(m.grpcSrv, m.id, m)
@@ -592,6 +609,25 @@ func (m *Module) findMetadataAddr(ctx context.Context) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no metadata module found")
+}
+
+// resolveGRPCAddr prefers loopback when plaintext is explicitly enabled and the
+// bind address would otherwise listen on all interfaces.
+func resolveGRPCAddr(addr string) string {
+	if !grpctls.InsecureAllowed() {
+		return addr
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		if strings.HasPrefix(addr, ":") {
+			return "127.0.0.1" + addr
+		}
+		return addr
+	}
+	if host == "" || host == "0.0.0.0" {
+		return "127.0.0.1:" + port
+	}
+	return addr
 }
 
 // dialAddrForModule maps discovery HttpAddr to a dial target.
