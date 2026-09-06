@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.10] — 2026-09-06
+
+### Fixed
+- Bump `contracts-media-admin` to Feature enum generation so tip admin-ui Unified Wanted recognizes movies `FEATURE_MISSING` (umbrella #122).
+
 ## [0.1.9] — 2026-08-10
 
 ### Added

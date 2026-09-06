@@ -15,7 +15,7 @@ MVP host stacks pin **core@v0.5.0**. This module declares `minCoreVersion` **0.4
 
 ## Contracts
 
-Implements `MediaAdminService` from `github.com/Muxcore-Media/contracts-media-admin` (v0.1.0).
+Implements `MediaAdminService` from `github.com/Muxcore-Media/contracts-media-admin` (v0.1.1+).
 
 ## Breaking Changes
 
