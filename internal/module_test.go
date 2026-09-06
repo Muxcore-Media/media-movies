@@ -235,7 +235,11 @@ func TestGetMediaTypeInfo(t *testing.T) {
 	if len(info.FilterFields) == 0 {
 		t.Error("expected filter fields")
 	}
-	want := map[string]bool{"missing": true, "tags": true, "collections": true}
+	want := map[mediaadminv1.Feature]bool{
+		mediaadminv1.Feature_FEATURE_MISSING:     true,
+		mediaadminv1.Feature_FEATURE_TAGS:        true,
+		mediaadminv1.Feature_FEATURE_COLLECTIONS: true,
+	}
 	for _, f := range info.Features {
 		delete(want, f)
 	}
@@ -593,7 +597,7 @@ func TestReplaceArtwork(t *testing.T) {
 		ctx: ctx,
 		msgs: []*mediaadminv1.ReplaceArtworkRequest{
 			{Data: &mediaadminv1.ReplaceArtworkRequest_ItemId{ItemId: add.MovieId}},
-			{Data: &mediaadminv1.ReplaceArtworkRequest_ArtworkType{ArtworkType: "poster"}},
+			{Data: &mediaadminv1.ReplaceArtworkRequest_ArtworkType{ArtworkType: mediaadminv1.ArtworkType_ARTWORK_TYPE_POSTER}},
 			{Data: &mediaadminv1.ReplaceArtworkRequest_Filename{Filename: "custom.png"}},
 			{Data: &mediaadminv1.ReplaceArtworkRequest_Chunk{Chunk: []byte{0x89, 0x50, 0x4e, 0x47}}},
 		},

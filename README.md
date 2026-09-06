@@ -21,7 +21,7 @@ Movie library manager with TMDB metadata import, file tracking, and admin UI int
 
 ## Contract
 
-`MediaAdminService` (`github.com/Muxcore-Media/contracts-media-admin`, v0.1.0)
+`MediaAdminService` (`github.com/Muxcore-Media/contracts-media-admin`, v0.1.1+)
 
 ## Quick Start
 

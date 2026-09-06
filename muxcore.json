@@ -15,7 +15,7 @@
     {
       "repo": "github.com/Muxcore-Media/contracts-media-admin",
       "interface": "MediaAdminService",
-      "version": "v0.1.0"
+      "version": "v0.1.1"
     }
   ],
   "minCoreVersion": "0.4.0"
