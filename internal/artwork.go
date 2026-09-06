@@ -49,6 +49,28 @@ func normalizeArtworkKind(t string) (string, error) {
 	}
 }
 
+func artworkKindFromType(t mediaadminv1.ArtworkType) (string, error) {
+	switch t {
+	case mediaadminv1.ArtworkType_ARTWORK_TYPE_POSTER:
+		return "poster", nil
+	case mediaadminv1.ArtworkType_ARTWORK_TYPE_BACKGROUND:
+		return "backdrop", nil
+	default:
+		return "", fmt.Errorf("unknown artwork type: %s", t)
+	}
+}
+
+func artworkTypeForKind(kind string) mediaadminv1.ArtworkType {
+	switch kind {
+	case "poster":
+		return mediaadminv1.ArtworkType_ARTWORK_TYPE_POSTER
+	case "backdrop":
+		return mediaadminv1.ArtworkType_ARTWORK_TYPE_BACKGROUND
+	default:
+		return mediaadminv1.ArtworkType_ARTWORK_TYPE_UNSPECIFIED
+	}
+}
+
 func extFromFilenameOrMIME(filename, contentType string) string {
 	ext := strings.ToLower(filepath.Ext(filename))
 	switch ext {
@@ -233,13 +255,13 @@ func (m *Module) buildArtworkInfos(itemID, poster, backdrop string) []*mediaadmi
 	if m.localArtworkExists(poster) {
 		artwork = append(artwork, &mediaadminv1.ArtworkInfo{
 			Id: itemID + "_poster", ItemId: itemID,
-			Type: "poster", Url: artworkURL(m.httpAddr, poster),
+			Type: mediaadminv1.ArtworkType_ARTWORK_TYPE_POSTER, Url: artworkURL(m.httpAddr, poster),
 		})
 	}
 	if m.localArtworkExists(backdrop) {
 		artwork = append(artwork, &mediaadminv1.ArtworkInfo{
 			Id: itemID + "_backdrop", ItemId: itemID,
-			Type: "background", Url: artworkURL(m.httpAddr, backdrop),
+			Type: mediaadminv1.ArtworkType_ARTWORK_TYPE_BACKGROUND, Url: artworkURL(m.httpAddr, backdrop),
 		})
 	}
 	return artwork

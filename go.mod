@@ -3,7 +3,7 @@ module github.com/Muxcore-Media/media-movies
 go 1.26.4
 
 require (
-	github.com/Muxcore-Media/contracts-media-admin v0.1.0
+	github.com/Muxcore-Media/contracts-media-admin v0.1.1-0.20260905225357-350de7622545
 	github.com/Muxcore-Media/core/pkg/contracts v0.5.2
 	github.com/Muxcore-Media/core/sdk/go/client v0.5.1
 	github.com/Muxcore-Media/core/sdk/go/module v0.5.2
