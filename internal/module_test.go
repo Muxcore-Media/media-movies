@@ -333,8 +333,8 @@ func TestListArtwork(t *testing.T) {
 	if len(resp.Artwork) != 2 {
 		t.Fatalf("expected 2 artwork entries, got %d", len(resp.Artwork))
 	}
-	if resp.Artwork[0].Type != "poster" {
-		t.Errorf("expected first artwork type 'poster', got %s", resp.Artwork[0].Type)
+	if resp.Artwork[0].Type != mediaadminv1.ArtworkType_ARTWORK_TYPE_POSTER {
+		t.Errorf("expected first artwork type poster, got %v", resp.Artwork[0].Type)
 	}
 	if !strings.Contains(resp.Artwork[0].Url, "/images/"+relPoster) {
 		t.Errorf("unexpected poster url: %s", resp.Artwork[0].Url)
