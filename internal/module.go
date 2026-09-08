@@ -27,8 +27,8 @@ import (
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	"github.com/Muxcore-Media/core/sdk/go/client"
 	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
-	"github.com/Muxcore-Media/media-movies/internal/grpctls"
 	automationv1 "github.com/Muxcore-Media/media-automation/proto/automationv1"
+	"github.com/Muxcore-Media/media-movies/internal/grpctls"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
 	metadatav1 "github.com/Muxcore-Media/metadata-tmdb/proto/metadatav1"
@@ -60,6 +60,8 @@ type Module struct {
 	rootsListFn func(ctx context.Context, mediaKind string) ([]string, error)
 	// automationSearchFn overrides mesh automation SearchItem for tests.
 	automationSearchFn func(ctx context.Context, req *automationv1.SearchItemRequest) (*automationv1.SearchItemResponse, error)
+	// collectionPartsFn overrides metadata GetCollection for tests.
+	collectionPartsFn func(ctx context.Context, collectionID int32) ([]collectionPart, error)
 }
 
 type Config struct {
@@ -132,7 +134,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Media Movies",
-		Version:      "0.1.9",
+		Version:      "0.1.11",
 		Roles:        []string{"media_manager"},
 		Description:  "Movie library manager with TMDB metadata import, file tracking, and admin UI integration",
 		Author:       "MuxCore",
@@ -196,6 +198,7 @@ func (m *Module) Init(ctx context.Context) error {
 		`ALTER TABLE movies ADD COLUMN root_folder_path TEXT DEFAULT ''`,
 		`ALTER TABLE movies ADD COLUMN collection_id INTEGER DEFAULT 0`,
 		`ALTER TABLE movies ADD COLUMN collection_name TEXT DEFAULT ''`,
+		`ALTER TABLE movies ADD COLUMN release_date TEXT DEFAULT ''`,
 	} {
 		if _, err := db.ExecContext(ctx, col); err != nil && !strings.Contains(err.Error(), "duplicate column") {
 			db.Close()
@@ -262,6 +265,11 @@ func (m *Module) Init(ctx context.Context) error {
 		db.Close()
 		return err
 	}
+	if err := m.ensureCollectionPrefsTable(ctx); err != nil {
+		m.mu.Unlock()
+		db.Close()
+		return err
+	}
 	m.backfillMovieTitles(ctx)
 	m.mu.Unlock()
 
@@ -312,6 +320,7 @@ func (m *Module) Start(ctx context.Context) error {
 		http.StripPrefix("/images/", http.FileServer(http.Dir(m.getImageDir()))).ServeHTTP(w, r)
 	})
 	mux.HandleFunc("/stream/movies/", m.handleStreamMovie)
+	mux.HandleFunc("GET /api/calendar", m.handleHTTPCalendar)
 	m.httpSrv = &http.Server{Handler: mux}
 
 	go func() {
@@ -459,6 +468,7 @@ func (m *Module) resolveMovieForImport(ctx context.Context, p contracts.FileImpo
 	overview := ""
 	poster := ""
 	backdrop := ""
+	release := ""
 	var genres []string
 
 	if tmdbID == 0 {
@@ -474,7 +484,8 @@ func (m *Module) resolveMovieForImport(ctx context.Context, p contracts.FileImpo
 		if title == "" {
 			title = result.GetOriginalTitle()
 		}
-		year = extractYear(result.GetReleaseDate())
+		release = result.GetReleaseDate()
+		year = extractYear(release)
 		overview = result.GetOverview()
 		poster = result.GetPosterPath()
 		backdrop = result.GetBackdropPath()
@@ -496,6 +507,7 @@ func (m *Module) resolveMovieForImport(ctx context.Context, p contracts.FileImpo
 	if err != nil {
 		return "", err
 	}
+	m.persistReleaseDate(ctx, resp.GetMovieId(), release)
 	go m.syncMovieTitlesFromTMDB(context.Background(), resp.GetMovieId(), tmdbID, title, "")
 	return resp.GetMovieId(), nil
 }
@@ -894,11 +906,11 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 		collName = c.GetName()
 	}
 	_, err = m.db.ExecContext(ctx,
-		`UPDATE movies SET title=?, original_title=?, year=?, overview=?, tagline=?, runtime=?, vote_average=?, status=?, imdb_id=?, genres=?, poster_path=?, backdrop_path=?, collection_id=?, collection_name=?, updated_at=? WHERE id=?`,
+		`UPDATE movies SET title=?, original_title=?, year=?, overview=?, tagline=?, runtime=?, vote_average=?, status=?, imdb_id=?, genres=?, poster_path=?, backdrop_path=?, collection_id=?, collection_name=?, release_date=?, updated_at=? WHERE id=?`,
 		details.GetTitle(), details.GetOriginalTitle(), extractYear(details.GetReleaseDate()),
 		details.GetOverview(), details.GetTagline(), details.GetRuntime(), details.GetVoteAverage(),
 		details.GetStatus(), details.GetImdbId(), string(genresJSON),
-		details.GetPosterPath(), details.GetBackdropPath(), collID, collName, now, req.GetMovieId(),
+		details.GetPosterPath(), details.GetBackdropPath(), collID, collName, normalizeReleaseDate(details.GetReleaseDate()), now, req.GetMovieId(),
 	)
 	if err == nil {
 		m.syncMoviePrimaryTitlesLocked(ctx, req.GetMovieId(), details.GetTitle(), details.GetOriginalTitle())

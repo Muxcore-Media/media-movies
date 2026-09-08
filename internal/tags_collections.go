@@ -93,6 +93,38 @@ func (m *Module) SetItemTags(ctx context.Context, req *mgmntv1.SetItemTagsReques
 	return &mgmntv1.SetItemTagsResponse{}, nil
 }
 
+func (m *Module) GetItemTags(ctx context.Context, req *mgmntv1.GetItemTagsRequest) (*mgmntv1.GetItemTagsResponse, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.db == nil {
+		return nil, fmt.Errorf("not initialized")
+	}
+	if req.GetItemId() == "" {
+		return nil, fmt.Errorf("item_id required")
+	}
+	var exists string
+	if err := m.db.QueryRowContext(ctx, `SELECT id FROM movies WHERE id = ?`, req.GetItemId()).Scan(&exists); err != nil || exists == "" {
+		return nil, fmt.Errorf("movie not found: %s", req.GetItemId())
+	}
+	rows, err := m.db.QueryContext(ctx,
+		`SELECT t.id, t.label, t.created_at FROM tags t
+		 INNER JOIN item_tags it ON it.tag_id = t.id
+		 WHERE it.item_id = ? ORDER BY t.label`, req.GetItemId())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tags []*mgmntv1.Tag
+	for rows.Next() {
+		var id, label, created string
+		if err := rows.Scan(&id, &label, &created); err != nil {
+			return nil, err
+		}
+		tags = append(tags, &mgmntv1.Tag{Id: id, Label: label, CreatedAt: created})
+	}
+	return &mgmntv1.GetItemTagsResponse{Tags: tags}, nil
+}
+
 func (m *Module) ListCollections(ctx context.Context, req *mgmntv1.ListCollectionsRequest) (*mgmntv1.ListCollectionsResponse, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -100,20 +132,26 @@ func (m *Module) ListCollections(ctx context.Context, req *mgmntv1.ListCollectio
 		return nil, fmt.Errorf("not initialized")
 	}
 	rows, err := m.db.QueryContext(ctx,
-		`SELECT collection_id, MAX(collection_name), COUNT(*) FROM movies
-		 WHERE collection_id > 0 GROUP BY collection_id ORDER BY MAX(collection_name)`)
+		`SELECT m.collection_id, MAX(m.collection_name), COUNT(*), COALESCE(MAX(p.monitored), 0)
+		 FROM movies m
+		 LEFT JOIN collection_prefs p ON p.collection_id = m.collection_id
+		 WHERE m.collection_id > 0
+		 GROUP BY m.collection_id
+		 ORDER BY MAX(m.collection_name)`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []*mgmntv1.CollectionSummary
 	for rows.Next() {
-		var id, count int32
+		var id, count, monitored int32
 		var name string
-		if err := rows.Scan(&id, &name, &count); err != nil {
+		if err := rows.Scan(&id, &name, &count, &monitored); err != nil {
 			return nil, err
 		}
-		out = append(out, &mgmntv1.CollectionSummary{CollectionId: id, Name: name, MovieCount: count})
+		out = append(out, &mgmntv1.CollectionSummary{
+			CollectionId: id, Name: name, MovieCount: count, Monitored: monitored == 1,
+		})
 	}
 	return &mgmntv1.ListCollectionsResponse{Collections: out}, nil
 }

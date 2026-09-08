@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 )
@@ -159,6 +156,37 @@ func (s mediaAdminServer) GetCollectionItems(ctx context.Context, req *mediaadmi
 	}, nil
 }
 
-func (s mediaAdminServer) GetCalendar(ctx context.Context, req *mediaadminv1.GetCalendarRequest) (*mediaadminv1.GetCalendarResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "calendar is not supported for movies")
+func (s mediaAdminServer) SetCollectionMonitored(ctx context.Context, req *mediaadminv1.SetCollectionMonitoredRequest) (*mediaadminv1.SetCollectionMonitoredResponse, error) {
+	id, err := strconv.Atoi(req.GetCollectionId())
+	if err != nil || id == 0 {
+		return nil, fmt.Errorf("invalid collection_id")
+	}
+	search := req.GetSearchOnAdd()
+	_, err = s.m.SetCollectionMonitored(ctx, &mgmntv1.SetCollectionMonitoredRequest{
+		CollectionId:     int32(id),
+		Monitored:        req.GetMonitored(),
+		SearchOnAdd:      &search,
+		QualityProfileId: req.GetQualityProfileId(),
+		RootFolderPath:   req.GetRootFolderPath(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &mediaadminv1.SetCollectionMonitoredResponse{}, nil
+}
+
+func (s mediaAdminServer) SyncCollection(ctx context.Context, req *mediaadminv1.SyncCollectionRequest) (*mediaadminv1.SyncCollectionResponse, error) {
+	id, err := strconv.Atoi(req.GetCollectionId())
+	if err != nil || id == 0 {
+		return nil, fmt.Errorf("invalid collection_id")
+	}
+	resp, err := s.m.SyncCollection(ctx, &mgmntv1.SyncCollectionRequest{
+		CollectionId: int32(id), AddMissing: req.GetAddMissing(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &mediaadminv1.SyncCollectionResponse{
+		Added: resp.GetAdded(), AlreadyPresent: resp.GetAlreadyPresent(), MissingOnSource: resp.GetMissingOnSource(),
+	}, nil
 }
