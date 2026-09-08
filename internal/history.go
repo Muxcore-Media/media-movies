@@ -19,6 +19,36 @@ const (
 	historyDeleteFile = "delete_file"
 )
 
+func historyEventTypeToDB(t mediaadminv1.HistoryEventType) string {
+	switch t {
+	case mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_GRAB:
+		return historyGrab
+	case mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_IMPORT:
+		return historyImport
+	case mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_DELETE_ITEM:
+		return historyDeleteItem
+	case mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_DELETE_FILE:
+		return historyDeleteFile
+	default:
+		return ""
+	}
+}
+
+func historyEventTypeFromDB(s string) mediaadminv1.HistoryEventType {
+	switch s {
+	case historyGrab:
+		return mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_GRAB
+	case historyImport:
+		return mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_IMPORT
+	case historyDeleteItem:
+		return mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_DELETE_ITEM
+	case historyDeleteFile:
+		return mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_DELETE_FILE
+	default:
+		return mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_UNSPECIFIED
+	}
+}
+
 type historyEntry struct {
 	EventType   string
 	ItemID      string
@@ -171,9 +201,11 @@ func (m *Module) ListHistory(ctx context.Context, req *mediaadminv1.ListHistoryR
 		where = append(where, "item_id = ?")
 		args = append(args, req.GetItemId())
 	}
-	if req.GetEventType() != "" {
-		where = append(where, "event_type = ?")
-		args = append(args, req.GetEventType())
+	if et := req.GetEventType(); et != mediaadminv1.HistoryEventType_HISTORY_EVENT_TYPE_UNSPECIFIED {
+		if dbType := historyEventTypeToDB(et); dbType != "" {
+			where = append(where, "event_type = ?")
+			args = append(args, dbType)
+		}
 	}
 	clause := strings.Join(where, " AND ")
 
@@ -197,12 +229,14 @@ func (m *Module) ListHistory(ctx context.Context, req *mediaadminv1.ListHistoryR
 	var records []*mediaadminv1.HistoryRecord
 	for rows.Next() {
 		var r mediaadminv1.HistoryRecord
+		var eventTypeDB string
 		if err := rows.Scan(
-			&r.Id, &r.EventType, &r.ItemId, &r.Title, &r.SourceTitle,
+			&r.Id, &eventTypeDB, &r.ItemId, &r.Title, &r.SourceTitle,
 			&r.Quality, &r.Indexer, &r.FilePath, &r.DownloadId, &r.CreatedAt,
 		); err != nil {
 			continue
 		}
+		r.EventType = historyEventTypeFromDB(eventTypeDB)
 		records = append(records, &r)
 	}
 

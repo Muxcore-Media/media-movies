@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.11] — 2026-09-08
+
+### Added
+- Household Radarr collection loop: persist `collection_prefs`, `GetCollectionPrefs` / `SetCollectionMonitored` / `SyncCollection`. Sync adds missing TMDB collection parts (fixture hook in tests) and searches when `search_on_add` is on.
+
 ## [0.1.10] — 2026-09-06
 
 ### Fixed

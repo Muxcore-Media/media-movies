@@ -18,6 +18,7 @@ import (
 
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 	"github.com/Muxcore-Media/core/pkg/contracts"
+	automationv1 "github.com/Muxcore-Media/media-automation/proto/automationv1"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 )
 
@@ -726,6 +727,13 @@ func TestTagsAndCollections(t *testing.T) {
 	if list.Total != 1 {
 		t.Fatalf("tag filter=%d", list.Total)
 	}
+	got, err := m.GetItemTags(ctx, &mgmntv1.GetItemTagsRequest{ItemId: add.MovieId})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].Id != tag.TagId || got.Tags[0].Label != "favorites" {
+		t.Fatalf("item tags: %+v", got.Tags)
+	}
 
 	m.mu.Lock()
 	m.db.ExecContext(ctx, `UPDATE movies SET collection_id=10, collection_name='Fight Club Collection' WHERE id=?`, add.MovieId)
@@ -744,6 +752,78 @@ func TestTagsAndCollections(t *testing.T) {
 	}
 	if len(cm.Movies) != 1 || cm.Name != "Fight Club Collection" {
 		t.Fatalf("collection movies: %+v", cm)
+	}
+}
+
+func TestCollectionMonitorAndSync(t *testing.T) {
+	m := newTestModule(t)
+	ctx := context.Background()
+	add, err := m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 550, Title: "Fight Club", Year: 1999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.mu.Lock()
+	_, _ = m.db.ExecContext(ctx, `UPDATE movies SET collection_id=10, collection_name='Fight Club Collection' WHERE id=?`, add.MovieId)
+	m.mu.Unlock()
+
+	on := true
+	set, err := m.SetCollectionMonitored(ctx, &mgmntv1.SetCollectionMonitoredRequest{
+		CollectionId: 10, Monitored: true, SearchOnAdd: &on, QualityProfileId: "qp1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !set.GetPrefs().GetMonitored() || !set.GetPrefs().GetSearchOnAdd() {
+		t.Fatalf("prefs: %+v", set.GetPrefs())
+	}
+	got, err := m.GetCollectionPrefs(ctx, &mgmntv1.GetCollectionPrefsRequest{CollectionId: 10})
+	if err != nil || !got.GetPrefs().GetMonitored() {
+		t.Fatalf("get prefs: %+v %v", got, err)
+	}
+	cols, err := m.ListCollections(ctx, &mgmntv1.ListCollectionsRequest{})
+	if err != nil || len(cols.Collections) != 1 || !cols.Collections[0].GetMonitored() {
+		t.Fatalf("list monitored: %+v %v", cols, err)
+	}
+
+	var searched int
+	m.collectionPartsFn = func(ctx context.Context, collectionID int32) ([]collectionPart, error) {
+		if collectionID != 10 {
+			t.Fatalf("collection %d", collectionID)
+		}
+		return []collectionPart{
+			{TmdbID: 550, Title: "Fight Club", Year: 1999},
+			{TmdbID: 551, Title: "Fight Club 2", Year: 2010, Overview: "fanfic"},
+		}, nil
+	}
+	m.automationSearchFn = func(ctx context.Context, req *automationv1.SearchItemRequest) (*automationv1.SearchItemResponse, error) {
+		searched++
+		return &automationv1.SearchItemResponse{}, nil
+	}
+	sync, err := m.SyncCollection(ctx, &mgmntv1.SyncCollectionRequest{CollectionId: 10, AddMissing: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sync.GetAdded() != 1 || sync.GetAlreadyPresent() != 1 {
+		t.Fatalf("sync: %+v", sync)
+	}
+	if searched != 1 {
+		t.Fatalf("search calls %d", searched)
+	}
+	cm, err := m.GetCollectionMovies(ctx, &mgmntv1.GetCollectionMoviesRequest{CollectionId: 10})
+	if err != nil || len(cm.Movies) != 2 {
+		t.Fatalf("after sync: %+v %v", cm, err)
+	}
+
+	s := mediaAdminServer{m: m}
+	admin, err := s.SetCollectionMonitored(ctx, &mediaadminv1.SetCollectionMonitoredRequest{
+		CollectionId: "10", Monitored: false, SearchOnAdd: true,
+	})
+	if err != nil || admin == nil {
+		t.Fatalf("admin monitor: %v", err)
+	}
+	adminSync, err := s.SyncCollection(ctx, &mediaadminv1.SyncCollectionRequest{CollectionId: "10", AddMissing: false})
+	if err != nil || adminSync.GetAlreadyPresent() != 2 {
+		t.Fatalf("admin sync: %+v %v", adminSync, err)
 	}
 }
 
@@ -800,9 +880,82 @@ func TestMediaAdminLibraryAdapters(t *testing.T) {
 		t.Fatalf("admin collection items: %+v %v", items, err)
 	}
 
-	if _, err := s.GetCalendar(ctx, &mediaadminv1.GetCalendarRequest{
+	if _, err := m.db.ExecContext(ctx, `UPDATE movies SET release_date='2020-01-15' WHERE id=?`, add.MovieId); err != nil {
+		t.Fatal(err)
+	}
+	cal, err := s.GetCalendar(ctx, &mediaadminv1.GetCalendarRequest{
 		StartDate: "2020-01-01", EndDate: "2020-01-31",
-	}); err == nil {
-		t.Fatal("expected calendar unimplemented for movies")
+	})
+	if err != nil || len(cal.GetItems()) != 1 || cal.GetItems()[0].GetDate() != "2020-01-15" {
+		t.Fatalf("movie calendar: %+v %v", cal, err)
+	}
+}
+
+func TestMovieCalendarHTTP(t *testing.T) {
+	m := newTestModule(t)
+	ctx := context.Background()
+	now := "2026-09-08T00:00:00Z"
+	if _, err := m.db.ExecContext(ctx, `
+		INSERT INTO movies (id, tmdb_id, title, year, release_date, monitored, has_file, created_at, updated_at)
+		VALUES ('mv_cal', 1, 'Upcoming Film', 2026, '2026-09-12', 1, 0, ?, ?)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/calendar?start=2026-09-01&end=2026-09-30", nil)
+	w := httptest.NewRecorder()
+	m.handleHTTPCalendar(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d body %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Upcoming Film") || !strings.Contains(w.Body.String(), "2026-09-12") {
+		t.Fatalf("body %s", w.Body.String())
+	}
+}
+
+func TestPendingReleaseDate(t *testing.T) {
+	date, sub := pendingReleaseDate(2026, "2026-09-01", "2026-09-30")
+	if date != "2026-09-01" || sub != "Release year (date pending)" {
+		t.Fatalf("clamped=%q %q", date, sub)
+	}
+	date, sub = pendingReleaseDate(2027, "2026-09-01", "2027-12-31")
+	if date != "2027-01-01" {
+		t.Fatalf("future year=%q %q", date, sub)
+	}
+	if date, _ = pendingReleaseDate(2025, "2026-09-01", "2026-09-30"); date != "" {
+		t.Fatalf("past year should be outside window, got %q", date)
+	}
+	if date, _ = pendingReleaseDate(0, "2026-01-01", "2026-12-31"); date != "" {
+		t.Fatal("expected empty for year 0")
+	}
+}
+
+func TestPersistReleaseDateAndYearPendingCalendar(t *testing.T) {
+	m := newTestModule(t)
+	ctx := context.Background()
+	now := "2026-09-08T00:00:00Z"
+	if _, err := m.db.ExecContext(ctx, `
+		INSERT INTO movies (id, tmdb_id, title, year, release_date, monitored, has_file, created_at, updated_at)
+		VALUES
+		('mv_pending', 2, 'Wanted Film', 2026, '', 1, 0, ?, ?),
+		('mv_on_disk', 3, 'Already Have', 2026, '', 1, 1, ?, ?)`, now, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	items, err := m.listMovieCalendar(ctx, "2026-09-01", "2026-09-30", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ID != "mv_pending" || items[0].Date != "2026-09-01" {
+		t.Fatalf("pending calendar=%+v", items)
+	}
+	if items[0].Subtitle != "Release year (date pending)" {
+		t.Fatalf("subtitle=%q", items[0].Subtitle)
+	}
+
+	m.persistReleaseDate(ctx, "mv_pending", "2026-09-18")
+	items, err = m.listMovieCalendar(ctx, "2026-09-01", "2026-09-30", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Date != "2026-09-18" || items[0].Subtitle != "Theatrical / digital" {
+		t.Fatalf("after persist=%+v", items)
 	}
 }

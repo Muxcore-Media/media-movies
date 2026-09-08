@@ -17,8 +17,12 @@ service MovieManagementService {
   rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
   rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
   rpc SetItemTags(SetItemTagsRequest) returns (SetItemTagsResponse);
+  rpc GetItemTags(GetItemTagsRequest) returns (GetItemTagsResponse);
   rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
   rpc GetCollectionMovies(GetCollectionMoviesRequest) returns (GetCollectionMoviesResponse);
+  rpc GetCollectionPrefs(GetCollectionPrefsRequest) returns (GetCollectionPrefsResponse);
+  rpc SetCollectionMonitored(SetCollectionMonitoredRequest) returns (SetCollectionMonitoredResponse);
+  rpc SyncCollection(SyncCollectionRequest) returns (SyncCollectionResponse);
   rpc ListAlternateTitles(ListAlternateTitlesRequest) returns (ListAlternateTitlesResponse);
   rpc AddAlternateTitle(AddAlternateTitleRequest) returns (AddAlternateTitleResponse);
   rpc RemoveAlternateTitle(RemoveAlternateTitleRequest) returns (RemoveAlternateTitleResponse);
@@ -207,6 +211,14 @@ message SetItemTagsRequest {
 
 message SetItemTagsResponse {}
 
+message GetItemTagsRequest {
+  string item_id = 1;
+}
+
+message GetItemTagsResponse {
+  repeated Tag tags = 1;
+}
+
 message ListCollectionsRequest {}
 
 message ListCollectionsResponse {
@@ -217,6 +229,7 @@ message CollectionSummary {
   int32 collection_id = 1;
   string name = 2;
   int32 movie_count = 3;
+  bool monitored = 4;
 }
 
 message GetCollectionMoviesRequest {
@@ -227,6 +240,46 @@ message GetCollectionMoviesResponse {
   int32 collection_id = 1;
   string name = 2;
   repeated MovieItem movies = 3;
+}
+
+message CollectionPrefs {
+  int32 collection_id = 1;
+  string name = 2;
+  bool monitored = 3;
+  bool search_on_add = 4;
+  string quality_profile_id = 5;
+  string root_folder_path = 6;
+}
+
+message GetCollectionPrefsRequest {
+  int32 collection_id = 1;
+}
+
+message GetCollectionPrefsResponse {
+  CollectionPrefs prefs = 1;
+}
+
+message SetCollectionMonitoredRequest {
+  int32 collection_id = 1;
+  bool monitored = 2;
+  optional bool search_on_add = 3;
+  string quality_profile_id = 4;
+  string root_folder_path = 5;
+}
+
+message SetCollectionMonitoredResponse {
+  CollectionPrefs prefs = 1;
+}
+
+message SyncCollectionRequest {
+  int32 collection_id = 1;
+  bool add_missing = 2;
+}
+
+message SyncCollectionResponse {
+  int32 added = 1;
+  int32 already_present = 2;
+  int32 missing_on_source = 3;
 }
 
 message ListAlternateTitlesRequest {
