@@ -204,6 +204,7 @@ func (m *Module) Init(ctx context.Context) error {
 		`ALTER TABLE movies ADD COLUMN collection_id INTEGER DEFAULT 0`,
 		`ALTER TABLE movies ADD COLUMN collection_name TEXT DEFAULT ''`,
 		`ALTER TABLE movies ADD COLUMN release_date TEXT DEFAULT ''`,
+		`ALTER TABLE movies ADD COLUMN content_rating TEXT DEFAULT ''`,
 	} {
 		if _, err := db.ExecContext(ctx, col); err != nil && !strings.Contains(err.Error(), "duplicate column") {
 			db.Close()
@@ -781,11 +782,11 @@ func (m *Module) AddMovie(ctx context.Context, req *mgmntv1.AddMovieRequest) (*m
 	genresJSON, _ := json.Marshal(req.GetGenres())
 
 	_, err = m.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO movies (id, tmdb_id, title, year, overview, poster_path, backdrop_path, genres, monitored, quality_profile_id, root_folder_path, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+		`INSERT OR IGNORE INTO movies (id, tmdb_id, title, year, overview, poster_path, backdrop_path, genres, monitored, quality_profile_id, root_folder_path, content_rating, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
 		id, req.GetTmdbId(), req.GetTitle(), req.GetYear(),
 		req.GetOverview(), req.GetPosterPath(), req.GetBackdropPath(),
-		string(genresJSON), req.GetQualityProfileId(), rootPath, now, now,
+		string(genresJSON), req.GetQualityProfileId(), rootPath, strings.TrimSpace(req.GetContentRating()), now, now,
 	)
 	if err != nil {
 		m.mu.Unlock()
@@ -881,7 +882,7 @@ func (m *Module) getMovieLocked(ctx context.Context, movieID string) *mgmntv1.Mo
 	row := m.db.QueryRowContext(ctx,
 		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies WHERE id = ?`,
+		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at, content_rating FROM movies WHERE id = ?`,
 		movieID,
 	)
 	return m.scanSingle(row)
@@ -1048,7 +1049,7 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 
 	query := `SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies`
+		monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at, content_rating FROM movies`
 	countQuery := `SELECT COUNT(*) FROM movies`
 
 	var args []any
@@ -1178,7 +1179,7 @@ func (m *Module) GetMovie(ctx context.Context, req *mgmntv1.GetMovieRequest) (*m
 	row := m.db.QueryRowContext(ctx,
 		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies WHERE id = ?`,
+		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at, content_rating FROM movies WHERE id = ?`,
 		req.GetMovieId(),
 	)
 
@@ -1190,14 +1191,14 @@ func (m *Module) GetMovie(ctx context.Context, req *mgmntv1.GetMovieRequest) (*m
 }
 
 func (m *Module) scanMovie(rows *sql.Rows) *mgmntv1.MovieItem {
-	var id, title, originalTitle, overview, tagline, status, imdbID, genresStr, posterPath, backdropPath, qualityProfileID, rootFolderPath, createdAt, updatedAt string
+	var id, title, originalTitle, overview, tagline, status, imdbID, genresStr, posterPath, backdropPath, qualityProfileID, rootFolderPath, createdAt, updatedAt, contentRating string
 	var tmdbID, year, runtime int64
 	var voteAvg float64
 	var monitored, hasFile int
 
 	err := rows.Scan(&id, &tmdbID, &title, &originalTitle, &year, &overview, &tagline,
 		&runtime, &voteAvg, &status, &imdbID, &genresStr, &posterPath, &backdropPath,
-		&monitored, &hasFile, &qualityProfileID, &rootFolderPath, &createdAt, &updatedAt)
+		&monitored, &hasFile, &qualityProfileID, &rootFolderPath, &createdAt, &updatedAt, &contentRating)
 	if err != nil {
 		slog.Error("scan movie row", "error", err)
 		return nil
@@ -1221,11 +1222,12 @@ func (m *Module) scanMovie(rows *sql.Rows) *mgmntv1.MovieItem {
 		Monitored: monitored != 0, HasFile: hasFile != 0,
 		QualityProfileId: qualityProfileID, RootFolderPath: rootFolderPath,
 		CreatedAt: createdAt, UpdatedAt: updatedAt,
+		ContentRating: contentRating,
 	}
 }
 
 func (m *Module) scanMovieWithCollection(rows *sql.Rows) *mgmntv1.MovieItem {
-	var id, title, originalTitle, overview, tagline, status, imdbID, genresStr, posterPath, backdropPath, qualityProfileID, rootFolderPath, createdAt, updatedAt, collectionName string
+	var id, title, originalTitle, overview, tagline, status, imdbID, genresStr, posterPath, backdropPath, qualityProfileID, rootFolderPath, createdAt, updatedAt, collectionName, contentRating string
 	var tmdbID, year, runtime, collectionID int64
 	var voteAvg float64
 	var monitored, hasFile int
@@ -1233,7 +1235,7 @@ func (m *Module) scanMovieWithCollection(rows *sql.Rows) *mgmntv1.MovieItem {
 	err := rows.Scan(&id, &tmdbID, &title, &originalTitle, &year, &overview, &tagline,
 		&runtime, &voteAvg, &status, &imdbID, &genresStr, &posterPath, &backdropPath,
 		&monitored, &hasFile, &qualityProfileID, &rootFolderPath, &createdAt, &updatedAt,
-		&collectionID, &collectionName)
+		&collectionID, &collectionName, &contentRating)
 	if err != nil {
 		slog.Error("scan movie collection row", "error", err)
 		return nil
@@ -1258,18 +1260,19 @@ func (m *Module) scanMovieWithCollection(rows *sql.Rows) *mgmntv1.MovieItem {
 		QualityProfileId: qualityProfileID, RootFolderPath: rootFolderPath,
 		CreatedAt: createdAt, UpdatedAt: updatedAt,
 		CollectionId: int32(collectionID), CollectionName: collectionName,
+		ContentRating: contentRating,
 	}
 }
 
 func (m *Module) scanSingle(row *sql.Row) *mgmntv1.MovieItem {
-	var id, title, originalTitle, overview, tagline, status, imdbID, genresStr, posterPath, backdropPath, qualityProfileID, rootFolderPath, createdAt, updatedAt string
+	var id, title, originalTitle, overview, tagline, status, imdbID, genresStr, posterPath, backdropPath, qualityProfileID, rootFolderPath, createdAt, updatedAt, contentRating string
 	var tmdbID, year, runtime int64
 	var voteAvg float64
 	var monitored, hasFile int
 
 	err := row.Scan(&id, &tmdbID, &title, &originalTitle, &year, &overview, &tagline,
 		&runtime, &voteAvg, &status, &imdbID, &genresStr, &posterPath, &backdropPath,
-		&monitored, &hasFile, &qualityProfileID, &rootFolderPath, &createdAt, &updatedAt)
+		&monitored, &hasFile, &qualityProfileID, &rootFolderPath, &createdAt, &updatedAt, &contentRating)
 	if err != nil {
 		return nil
 	}
@@ -1292,6 +1295,7 @@ func (m *Module) scanSingle(row *sql.Row) *mgmntv1.MovieItem {
 		Monitored: monitored != 0, HasFile: hasFile != 0,
 		QualityProfileId: qualityProfileID, RootFolderPath: rootFolderPath,
 		CreatedAt: createdAt, UpdatedAt: updatedAt,
+		ContentRating: contentRating,
 	}
 }
 
@@ -1486,7 +1490,7 @@ func (m *Module) ListItems(ctx context.Context, req *mediaadminv1.ListItemsReque
 
 	query := `SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies`
+		monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at, content_rating FROM movies`
 	countQuery := `SELECT COUNT(*) FROM movies`
 
 	var args []any
@@ -1552,7 +1556,7 @@ func (m *Module) GetItem(ctx context.Context, req *mediaadminv1.GetItemRequest) 
 	row := m.db.QueryRowContext(ctx,
 		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies WHERE id = ?`,
+		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at, content_rating FROM movies WHERE id = ?`,
 		req.GetId(),
 	)
 
@@ -1594,12 +1598,17 @@ func (m *Module) UpdateMetadata(ctx context.Context, req *mediaadminv1.UpdateMet
 				return nil, fmt.Errorf("update root_folder_path: %w", err)
 			}
 		}
+		if v, ok := meta["content_rating"]; ok {
+			if _, err := m.db.ExecContext(ctx, `UPDATE movies SET content_rating=?, updated_at=? WHERE id=?`, strings.TrimSpace(v), now, req.GetId()); err != nil {
+				return nil, fmt.Errorf("update content_rating: %w", err)
+			}
+		}
 	}
 
 	row := m.db.QueryRowContext(ctx,
 		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies WHERE id = ?`,
+		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at, content_rating FROM movies WHERE id = ?`,
 		req.GetId(),
 	)
 	movie := m.scanSingle(row)

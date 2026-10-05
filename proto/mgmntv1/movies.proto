@@ -38,6 +38,8 @@ message AddMovieRequest {
   repeated string genres = 7;
   string quality_profile_id = 8;
   string root_folder_path = 9;
+  // Certification such as PG-13 or R. Empty means unknown (parental ceiling stays fail-open).
+  string content_rating = 10;
 }
 
 message AddMovieResponse {
@@ -139,6 +141,8 @@ message MovieItem {
   string root_folder_path = 22;
   int32 collection_id = 23;
   string collection_name = 24;
+  // Certification such as PG-13 or R. Empty means unknown.
+  string content_rating = 25;
 }
 
 message AddFileRequest {

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.22] - 2026-10-05
+
+### Added
+- Movie records store `content_rating` (proto field 25, sqlite column). AddMovie and the admin metadata map persist it; list and get return it. Empty means unknown. Metadata refresh does not invent a certification — TMDB movie details still have no rating field.
+
 ## [0.1.21] - 2026-10-05
 
 

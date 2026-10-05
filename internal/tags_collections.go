@@ -174,7 +174,7 @@ func (m *Module) GetCollectionMovies(ctx context.Context, req *mgmntv1.GetCollec
 		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
 		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
 		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at,
-		 COALESCE(collection_id, 0), COALESCE(collection_name, '')
+		 COALESCE(collection_id, 0), COALESCE(collection_name, ''), COALESCE(content_rating, '')
 		 FROM movies WHERE collection_id = ? ORDER BY year, title`,
 		req.GetCollectionId(),
 	)

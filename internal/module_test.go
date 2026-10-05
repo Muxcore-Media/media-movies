@@ -103,6 +103,62 @@ func TestAddAndGetMovie(t *testing.T) {
 	}
 }
 
+func TestContentRatingRoundTrip(t *testing.T) {
+	m := newTestModule(t)
+	ctx := context.Background()
+
+	add, err := m.AddMovie(ctx, &mgmntv1.AddMovieRequest{
+		TmdbId:        603,
+		Title:         "The Matrix",
+		Year:          1999,
+		Genres:        []string{"Action", "Sci-Fi"},
+		ContentRating: "R",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	get, err := m.GetMovie(ctx, &mgmntv1.GetMovieRequest{MovieId: add.MovieId})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if get.GetMovie().GetContentRating() != "R" {
+		t.Fatalf("content_rating = %q", get.GetMovie().GetContentRating())
+	}
+	list, err := m.ListMovies(ctx, &mgmntv1.ListMoviesRequest{Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, movie := range list.GetMovies() {
+		if movie.GetId() == add.MovieId {
+			found = true
+			if movie.GetContentRating() != "R" {
+				t.Fatalf("list content_rating = %q", movie.GetContentRating())
+			}
+		}
+	}
+	if !found {
+		t.Fatal("added movie missing from list")
+	}
+
+	if _, err := m.UpdateMetadata(ctx, &mediaadminv1.UpdateMetadataRequest{
+		Id:    add.MovieId,
+		Title: "The Matrix",
+		Metadata: map[string]string{
+			"content_rating": "PG-13",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	get, err = m.GetMovie(ctx, &mgmntv1.GetMovieRequest{MovieId: add.MovieId})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if get.GetMovie().GetContentRating() != "PG-13" {
+		t.Fatalf("updated content_rating = %q", get.GetMovie().GetContentRating())
+	}
+}
+
 func TestAddDuplicateTMDBID(t *testing.T) {
 	m := newTestModule(t)
 	ctx := context.Background()
