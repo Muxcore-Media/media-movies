@@ -84,15 +84,22 @@ func (m *Module) backfillMovieTitles(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	defer rows.Close()
+	// SetMaxOpenConns(1): the cursor must be fully drained and closed before
+	// upserting, otherwise the upsert waits forever for the only connection.
+	type pending struct{ id, title, original string }
+	var todo []pending
 	for rows.Next() {
-		var id, title, original string
-		if err := rows.Scan(&id, &title, &original); err != nil {
+		var p pending
+		if err := rows.Scan(&p.id, &p.title, &p.original); err != nil {
 			continue
 		}
-		m.upsertMovieTitleLocked(ctx, id, title, titleSourcePrimary)
-		if original != "" && cleanMatchTitle(original) != cleanMatchTitle(title) {
-			m.upsertMovieTitleLocked(ctx, id, original, titleSourceOriginal)
+		todo = append(todo, p)
+	}
+	_ = rows.Close()
+	for _, p := range todo {
+		m.upsertMovieTitleLocked(ctx, p.id, p.title, titleSourcePrimary)
+		if p.original != "" && cleanMatchTitle(p.original) != cleanMatchTitle(p.title) {
+			m.upsertMovieTitleLocked(ctx, p.id, p.original, titleSourceOriginal)
 		}
 	}
 }

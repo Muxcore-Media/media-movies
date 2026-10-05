@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.17] - 2026-10-05
+
+
+### Added
+- Upgrade test (`internal/upgrade_test.go`) with committed snapshots `internal/testdata/upgrade/v0.1.9.db` and `v0.1.15.db` (ADR-0015, T-M2-06, NFR-DATA-002, FR-INS-005): the current code opens databases created by older tags twice, with schema-superset, seeded-row, new-column-default and integrity checks.
+### Fixed
+- Startup deadlock when upgrading a database that has movies without `movie_titles` rows (e.g. created by v0.1.9): `backfillMovieTitles` kept its query cursor open while upserting, but the DB is limited to one connection, so `Init` hung forever. Rows are now drained and the cursor closed before upserting. Found by the upgrade test.
+
 ## [0.1.16] - 2026-10-05
 
 
