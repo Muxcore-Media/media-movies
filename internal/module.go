@@ -31,6 +31,7 @@ import (
 	"github.com/Muxcore-Media/core/sdk/go/client"
 	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
 	automationv1 "github.com/Muxcore-Media/media-automation/proto/automationv1"
+	manifest "github.com/Muxcore-Media/media-movies"
 	"github.com/Muxcore-Media/media-movies/internal/grpctls"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
@@ -141,7 +142,7 @@ func (m *Module) Info() contracts.ModuleInfo {
 	return contracts.ModuleInfo{
 		ID:           m.id,
 		Name:         "Media Movies",
-		Version:      "0.1.11",
+		Version:      modulesdk.ManifestVersion(manifest.ManifestJSON),
 		Roles:        []string{"media_manager"},
 		Description:  "Movie library manager with TMDB metadata import, file tracking, and admin UI integration",
 		Author:       "MuxCore",
