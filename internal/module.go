@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -344,7 +345,9 @@ func (m *Module) Start(ctx context.Context) error {
 
 func (m *Module) Stop(ctx context.Context) error {
 	if m.httpSrv != nil {
-		m.httpSrv.Shutdown(ctx)
+		if err := m.httpSrv.Shutdown(ctx); err != nil {
+			slog.Warn("http server shutdown", "error", err)
+		}
 	}
 	if m.grpcSrv != nil {
 		m.grpcSrv.GracefulStop()
@@ -818,7 +821,9 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 
 	var tmdbID int
 	var title, rootFolder string
-	m.db.QueryRowContext(ctx, `SELECT tmdb_id, title, COALESCE(root_folder_path, '') FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &title, &rootFolder)
+	if err := m.db.QueryRowContext(ctx, `SELECT tmdb_id, title, COALESCE(root_folder_path, '') FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &title, &rootFolder); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		slog.Warn("remove movie: lookup failed", "movie_id", req.GetMovieId(), "error", err)
+	}
 
 	if req.GetDeleteFiles() {
 		rows, err := m.db.QueryContext(ctx, `SELECT DISTINCT file_path FROM movie_files WHERE movie_id = ?`, req.GetMovieId())
@@ -840,9 +845,15 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 		Data:      map[string]any{"tmdb_id": tmdbID, "delete_files": req.GetDeleteFiles()},
 	})
 
-	m.db.ExecContext(ctx, `DELETE FROM item_tags WHERE item_id = ?`, req.GetMovieId())
-	m.db.ExecContext(ctx, `DELETE FROM movie_titles WHERE movie_id = ?`, req.GetMovieId())
-	m.db.ExecContext(ctx, `DELETE FROM movie_files WHERE movie_id = ?`, req.GetMovieId())
+	for _, q := range []string{
+		`DELETE FROM item_tags WHERE item_id = ?`,
+		`DELETE FROM movie_titles WHERE movie_id = ?`,
+		`DELETE FROM movie_files WHERE movie_id = ?`,
+	} {
+		if _, err := m.db.ExecContext(ctx, q, req.GetMovieId()); err != nil {
+			slog.Warn("remove movie: dependent row cleanup failed", "movie_id", req.GetMovieId(), "query", q, "error", err)
+		}
+	}
 	_, err := m.db.ExecContext(ctx, `DELETE FROM movies WHERE id = ?`, req.GetMovieId())
 	if err != nil {
 		return nil, fmt.Errorf("delete movie: %w", err)
@@ -860,8 +871,11 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 	m.mu.RLock()
 	var tmdbID int32
 	var movieTitle string
-	m.db.QueryRowContext(ctx, `SELECT tmdb_id, title FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &movieTitle)
+	lookupErr := m.db.QueryRowContext(ctx, `SELECT tmdb_id, title FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&tmdbID, &movieTitle)
 	m.mu.RUnlock()
+	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+		return nil, fmt.Errorf("look up movie %s: %w", req.GetMovieId(), lookupErr)
+	}
 
 	if tmdbID == 0 {
 		return nil, fmt.Errorf("movie not found: %s", req.GetMovieId())
@@ -985,7 +999,9 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 	}
 
 	var total int
-	m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err := m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("count movies: %w", err)
+	}
 
 	sortBy := req.GetSortBy()
 	if sortBy == "" {
@@ -1113,7 +1129,9 @@ func (m *Module) scanMovie(rows *sql.Rows) *mgmntv1.MovieItem {
 	}
 
 	var genres []string
-	json.Unmarshal([]byte(genresStr), &genres)
+	if err := json.Unmarshal([]byte(genresStr), &genres); err != nil {
+		genres = nil
+	}
 	if genres == nil {
 		genres = []string{}
 	}
@@ -1147,7 +1165,9 @@ func (m *Module) scanMovieWithCollection(rows *sql.Rows) *mgmntv1.MovieItem {
 	}
 
 	var genres []string
-	json.Unmarshal([]byte(genresStr), &genres)
+	if err := json.Unmarshal([]byte(genresStr), &genres); err != nil {
+		genres = nil
+	}
 	if genres == nil {
 		genres = []string{}
 	}
@@ -1180,7 +1200,9 @@ func (m *Module) scanSingle(row *sql.Row) *mgmntv1.MovieItem {
 	}
 
 	var genres []string
-	json.Unmarshal([]byte(genresStr), &genres)
+	if err := json.Unmarshal([]byte(genresStr), &genres); err != nil {
+		genres = nil
+	}
 	if genres == nil {
 		genres = []string{}
 	}
@@ -1218,7 +1240,9 @@ func (m *Module) AddFile(ctx context.Context, req *mgmntv1.AddFileRequest) (*mgm
 		return nil, fmt.Errorf("insert file: %w", err)
 	}
 
-	m.db.ExecContext(ctx, `UPDATE movies SET has_file = 1, updated_at = ? WHERE id = ?`, now, req.GetMovieId())
+	if _, err := m.db.ExecContext(ctx, `UPDATE movies SET has_file = 1, updated_at = ? WHERE id = ?`, now, req.GetMovieId()); err != nil {
+		slog.Warn("add file: failed to set has_file", "movie_id", req.GetMovieId(), "error", err)
+	}
 
 	var title string
 	_ = m.db.QueryRowContext(ctx, `SELECT title FROM movies WHERE id = ?`, req.GetMovieId()).Scan(&title)
@@ -1246,7 +1270,9 @@ func (m *Module) RemoveFile(ctx context.Context, req *mgmntv1.RemoveFileRequest)
 	}
 
 	var movieID, filePath, quality string
-	m.db.QueryRowContext(ctx, `SELECT movie_id, file_path, COALESCE(quality, '') FROM movie_files WHERE id = ?`, req.GetFileId()).Scan(&movieID, &filePath, &quality)
+	if err := m.db.QueryRowContext(ctx, `SELECT movie_id, file_path, COALESCE(quality, '') FROM movie_files WHERE id = ?`, req.GetFileId()).Scan(&movieID, &filePath, &quality); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		slog.Warn("remove file: lookup failed", "file_id", req.GetFileId(), "error", err)
+	}
 
 	var title string
 	if movieID != "" {
@@ -1276,9 +1302,14 @@ func (m *Module) RemoveFile(ctx context.Context, req *mgmntv1.RemoveFileRequest)
 	}
 
 	var remaining int
-	m.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM movie_files WHERE movie_id = ?`, movieID).Scan(&remaining)
+	if err := m.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM movie_files WHERE movie_id = ?`, movieID).Scan(&remaining); err != nil {
+		slog.Warn("remove file: count remaining files failed", "movie_id", movieID, "error", err)
+		remaining = -1 // unknown: leave has_file untouched
+	}
 	if remaining == 0 {
-		m.db.ExecContext(ctx, `UPDATE movies SET has_file = 0, updated_at = ? WHERE id = ?`, time.Now().UTC().Format(time.RFC3339), movieID)
+		if _, err := m.db.ExecContext(ctx, `UPDATE movies SET has_file = 0, updated_at = ? WHERE id = ?`, time.Now().UTC().Format(time.RFC3339), movieID); err != nil {
+			slog.Warn("remove file: failed to clear has_file", "movie_id", movieID, "error", err)
+		}
 	}
 
 	go m.publish(context.Background(), contracts.EventMovieFileRemoved, map[string]interface{}{
@@ -1405,7 +1436,9 @@ func (m *Module) ListItems(ctx context.Context, req *mediaadminv1.ListItemsReque
 	}
 
 	var total int
-	m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err := m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("count: %w", err)
+	}
 
 	query += fmt.Sprintf(` ORDER BY %s %s LIMIT ? OFFSET ?`, sortBy, sortOrder)
 	qargs := append(args, pageSize, offset)
