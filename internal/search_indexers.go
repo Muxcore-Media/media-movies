@@ -70,7 +70,7 @@ func (m *Module) automationSearchItem(ctx context.Context, req *automationv1.Sea
 	if m.automationSearchFn != nil {
 		return m.automationSearchFn(ctx, req)
 	}
-	if m.mc == nil {
+	if m.coreClient() == nil {
 		return nil, fmt.Errorf("not connected to core")
 	}
 	addr, err := m.findAutomationAddr(ctx)
@@ -86,10 +86,11 @@ func (m *Module) automationSearchItem(ctx context.Context, req *automationv1.Sea
 }
 
 func (m *Module) findAutomationAddr(ctx context.Context) (string, error) {
-	if m.mc == nil {
+	mc := m.coreClient()
+	if mc == nil {
 		return "", fmt.Errorf("not connected to core")
 	}
-	modules, err := m.mc.Discovery.FindByCapability(ctx, capMediaAutomation)
+	modules, err := mc.Discovery.FindByCapability(ctx, capMediaAutomation)
 	if err != nil {
 		return "", fmt.Errorf("discover %s: %w", capMediaAutomation, err)
 	}

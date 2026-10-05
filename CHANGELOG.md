@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.15] - 2026-10-05
+
+
+### Fixed
+- Data race on the core mesh client: `Module.mc` is now an `atomic.Pointer[client.Client]` read via `coreClient()` (nil until `dialCore` connects); `mcMu` removed. All readers (`publish`, discovery lookups, event subscriptions) use the accessor. Added a `-race` regression test that runs `Start` concurrently with `AddMovie`/`AddFile` (T-M1-06, NFR-MNT-004).
+
 ## [0.1.14] - 2026-10-05
 
 
