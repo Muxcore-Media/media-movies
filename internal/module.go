@@ -1338,6 +1338,25 @@ func (m *Module) GetMediaTypeInfo(ctx context.Context, req *mediaadminv1.GetMedi
 	}, nil
 }
 
+// sortColumnForField maps the admin SortField enum to a movies table column.
+// Unspecified (and unknown) values fall back to title.
+func sortColumnForField(f mediaadminv1.SortField) string {
+	switch f {
+	case mediaadminv1.SortField_SORT_FIELD_YEAR:
+		return "year"
+	case mediaadminv1.SortField_SORT_FIELD_CREATED_AT:
+		return "created_at"
+	case mediaadminv1.SortField_SORT_FIELD_UPDATED_AT:
+		return "updated_at"
+	case mediaadminv1.SortField_SORT_FIELD_RUNTIME:
+		return "runtime"
+	case mediaadminv1.SortField_SORT_FIELD_RATING:
+		return "vote_average"
+	default:
+		return "title"
+	}
+}
+
 func (m *Module) ListItems(ctx context.Context, req *mediaadminv1.ListItemsRequest) (*mediaadminv1.ListItemsResponse, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1373,10 +1392,7 @@ func (m *Module) ListItems(ctx context.Context, req *mediaadminv1.ListItemsReque
 		args = append(args, req.GetTagId())
 	}
 
-	sortBy := req.GetSortBy()
-	if sortBy == "" {
-		sortBy = "title"
-	}
+	sortBy := sortColumnForField(req.GetSortBy())
 	sortOrder := req.GetSortOrder()
 	if sortOrder != "desc" {
 		sortOrder = "asc"
