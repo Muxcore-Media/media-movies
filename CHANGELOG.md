@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16] - 2026-10-05
+
+
+### Fixed
+- Event subscriptions (`file.imported`, `download.dispatched`) no longer wait a hard-coded 15 s after start; they subscribe as soon as the core mesh client is connected, with exponential-backoff retry (client not yet connected or Subscribe failing) until module Stop. `dialCore` also retries with backoff and uses the module lifecycle context. Previously, at-most-once delivery lost imports during the window, making fixture acquisition smoke flaky (T-M2-03, NFR-REL). Handler behaviour is unchanged.
+- Test requirement: core v0.6.7 (for `core/integsupport`); added an in-process harness test that a `file.imported` published ~100 ms after Start is handled, plus a fake-subscriber retry/stop test.
+
 ## [0.1.15] - 2026-10-05
 
 

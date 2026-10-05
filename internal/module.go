@@ -27,6 +27,7 @@ import (
 
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 	"github.com/Muxcore-Media/core/pkg/contracts"
+	eventsv1 "github.com/Muxcore-Media/core/proto/gen/muxcore/events/v1"
 	"github.com/Muxcore-Media/core/sdk/go/client"
 	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
 	automationv1 "github.com/Muxcore-Media/media-automation/proto/automationv1"
@@ -46,6 +47,8 @@ type Module struct {
 	// mc is the core mesh client, set asynchronously by dialCore. Always read
 	// it via coreClient(); nil means not (yet) connected.
 	mc atomic.Pointer[client.Client]
+	// lifeCancel stops background goroutines (core dial, event subscriptions).
+	lifeCancel context.CancelFunc
 
 	id           string
 	dbPath       string
@@ -340,13 +343,18 @@ func (m *Module) Start(ctx context.Context) error {
 		}
 	}()
 
-	go m.dialCore(context.Background())
-	go m.subscribeToFileImported()
-	go m.subscribeToDownloadDispatched()
+	lifeCtx, lifeCancel := context.WithCancel(context.Background())
+	m.lifeCancel = lifeCancel
+	go m.dialCore(lifeCtx)
+	go m.subscribeToFileImported(lifeCtx)
+	go m.subscribeToDownloadDispatched(lifeCtx)
 	return nil
 }
 
 func (m *Module) Stop(ctx context.Context) error {
+	if m.lifeCancel != nil {
+		m.lifeCancel()
+	}
 	if m.httpSrv != nil {
 		if err := m.httpSrv.Shutdown(ctx); err != nil {
 			slog.Warn("http server shutdown", "error", err)
@@ -393,42 +401,104 @@ func (m *Module) dialCore(ctx context.Context) {
 		opts = append(opts, client.WithInsecure())
 	}
 
-	c, err := client.Dial(meshAddr, opts...)
-	if err != nil {
-		slog.Error("media-movies: dial core", "error", err)
-		return
+	backoff := coreRetryMin
+	for {
+		c, err := client.Dial(meshAddr, opts...)
+		if err == nil {
+			if ctx.Err() != nil {
+				c.Close()
+				return
+			}
+			m.mc.Store(c)
+			break
+		}
+		slog.Error("media-movies: dial core; will retry", "error", err, "retry_in", backoff)
+		if !sleepCtx(ctx, backoff) {
+			return
+		}
+		backoff = nextBackoff(backoff)
 	}
-	m.mc.Store(c)
 	slog.Info("media-movies: connected to core mesh", "addr", meshAddr)
 }
 
 // coreClient returns the core mesh client, or nil if not yet connected.
 func (m *Module) coreClient() *client.Client { return m.mc.Load() }
 
-func (m *Module) subscribeToFileImported() {
-	time.Sleep(15 * time.Second)
-	mc := m.coreClient()
-	if mc == nil {
-		return
+// Retry backoff bounds for dialing core and subscribing to events.
+const (
+	coreRetryMin = 100 * time.Millisecond
+	coreRetryMax = 5 * time.Second
+)
+
+// sleepCtx waits for d or until ctx is done; it reports whether ctx is still live.
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
 	}
-	ch, cancel, err := mc.Events.Subscribe(context.Background(), contracts.EventFileImported)
-	if err != nil {
-		slog.Warn("subscribe to file imported events", "error", err)
-		return
+}
+
+func nextBackoff(d time.Duration) time.Duration {
+	if d *= 2; d > coreRetryMax {
+		return coreRetryMax
 	}
-	go func() {
-		for evt := range ch {
-			var p contracts.FileImportedPayload
-			if err := json.Unmarshal(evt.Payload, &p); err != nil || p.MediaType != "movie" {
-				continue
+	return d
+}
+
+// eventSubscriber opens an event subscription (satisfied by the SDK events client).
+type eventSubscriber interface {
+	Subscribe(ctx context.Context, eventType string) (<-chan *eventsv1.Event, context.CancelFunc, error)
+}
+
+// subscribeWhenReady subscribes to eventType as soon as the core mesh client is
+// connected, retrying with exponential backoff while the client is missing or
+// Subscribe fails (for example core not ready). Event delivery is at-most-once,
+// so subscribing late loses events; there is deliberately no fixed delay. It
+// returns the event channel and cancel func, or ok=false if ctx ends first.
+func subscribeWhenReady(ctx context.Context, get func() eventSubscriber, eventType string) (<-chan *eventsv1.Event, context.CancelFunc, bool) {
+	backoff := coreRetryMin
+	for {
+		if sub := get(); sub != nil {
+			ch, cancel, err := sub.Subscribe(ctx, eventType)
+			if err == nil {
+				return ch, cancel, true
 			}
-			if err := m.handleFileImported(context.Background(), p); err != nil {
-				slog.Debug("handle imported movie file", "title", p.Title, "error", err)
-			}
+			slog.Warn("subscribe to events; will retry", "event", eventType, "error", err, "retry_in", backoff)
 		}
-		cancel()
-	}()
+		if !sleepCtx(ctx, backoff) {
+			return nil, nil, false
+		}
+		backoff = nextBackoff(backoff)
+	}
+}
+
+func (m *Module) eventSubscriber() eventSubscriber {
+	if c := m.coreClient(); c != nil {
+		return c.Events
+	}
+	return nil
+}
+
+func (m *Module) subscribeToFileImported(ctx context.Context) {
+	ch, cancel, ok := subscribeWhenReady(ctx, m.eventSubscriber, contracts.EventFileImported)
+	if !ok {
+		return
+	}
+	defer cancel()
 	slog.Info("subscribed to file imported events")
+	for evt := range ch {
+		var p contracts.FileImportedPayload
+		if err := json.Unmarshal(evt.Payload, &p); err != nil || p.MediaType != "movie" {
+			continue
+		}
+		if err := m.handleFileImported(context.Background(), p); err != nil {
+			slog.Debug("handle imported movie file", "title", p.Title, "error", err)
+		}
+	}
 }
 
 func (m *Module) handleFileImported(ctx context.Context, p contracts.FileImportedPayload) error {
