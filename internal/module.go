@@ -42,6 +42,7 @@ type Module struct {
 	mu    sync.RWMutex
 	cfgMu sync.RWMutex
 	db    *sql.DB
+	mcMu  sync.Mutex // guards mc assignment (dialCore) against Stop
 	mc    *client.Client
 
 	id           string
@@ -355,9 +356,11 @@ func (m *Module) Stop(ctx context.Context) error {
 	if m.rootsConn != nil {
 		_ = m.rootsConn.Close()
 	}
+	m.mcMu.Lock()
 	if m.mc != nil {
 		m.mc.Close()
 	}
+	m.mcMu.Unlock()
 	m.mu.Lock()
 	if m.db != nil {
 		m.db.Close()
@@ -395,7 +398,9 @@ func (m *Module) dialCore(ctx context.Context) {
 		slog.Error("media-movies: dial core", "error", err)
 		return
 	}
+	m.mcMu.Lock()
 	m.mc = c
+	m.mcMu.Unlock()
 	slog.Info("media-movies: connected to core mesh", "addr", meshAddr)
 }
 
@@ -1761,3 +1766,12 @@ func (m *Module) handleStreamMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 var _ contracts.Module = (*Module)(nil)
+
+// GRPCListenAddr returns the bound gRPC listener address once Init has run,
+// or the configured address before that. Test hook for integration harnesses.
+func (m *Module) GRPCListenAddr() string {
+	if m.grpcLis != nil {
+		return m.grpcLis.Addr().String()
+	}
+	return m.grpcAddr
+}

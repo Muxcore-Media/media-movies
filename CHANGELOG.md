@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.14] - 2026-10-05
+
+
+### Added
+- `integsupport` package: `Config`, `Module`, `NewTestModule(t, Config)` and `Start(ctx, *Module)` for the umbrella integration tests (T-M1-06, NFR-MNT-004). Temp-dir DB, loopback listeners, plaintext gRPC for tests; `Module.GRPCListenAddr()` test hook.
+
 ## [0.1.13] - 2026-10-05
 
 ### Changed
