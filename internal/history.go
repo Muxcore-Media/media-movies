@@ -114,28 +114,20 @@ func (m *Module) appendHistory(ctx context.Context, e historyEntry) {
 	}
 }
 
-func (m *Module) subscribeToDownloadDispatched() {
-	time.Sleep(15 * time.Second)
-	mc := m.coreClient()
-	if mc == nil {
+func (m *Module) subscribeToDownloadDispatched(ctx context.Context) {
+	ch, cancel, ok := subscribeWhenReady(ctx, m.eventSubscriber, contracts.EventDownloadDispatched)
+	if !ok {
 		return
 	}
-	ch, cancel, err := mc.Events.Subscribe(context.Background(), contracts.EventDownloadDispatched)
-	if err != nil {
-		slog.Warn("subscribe to download dispatched events", "error", err)
-		return
-	}
-	go func() {
-		for evt := range ch {
-			var p contracts.DownloadDispatchedPayload
-			if err := json.Unmarshal(evt.Payload, &p); err != nil {
-				continue
-			}
-			m.handleDownloadDispatched(context.Background(), p)
-		}
-		cancel()
-	}()
+	defer cancel()
 	slog.Info("subscribed to download dispatched events")
+	for evt := range ch {
+		var p contracts.DownloadDispatchedPayload
+		if err := json.Unmarshal(evt.Payload, &p); err != nil {
+			continue
+		}
+		m.handleDownloadDispatched(context.Background(), p)
+	}
 }
 
 func (m *Module) handleDownloadDispatched(ctx context.Context, p contracts.DownloadDispatchedPayload) {

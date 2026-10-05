@@ -4,6 +4,7 @@ go 1.26.6
 
 require (
 	github.com/Muxcore-Media/contracts-media-admin v0.1.1
+	github.com/Muxcore-Media/core v0.6.7
 	github.com/Muxcore-Media/core/pkg/contracts v0.6.0
 	github.com/Muxcore-Media/core/sdk/go/client v0.6.0
 	github.com/Muxcore-Media/core/sdk/go/module v0.6.0
@@ -16,12 +17,13 @@ require (
 )
 
 require (
-	github.com/Muxcore-Media/core v0.6.2 // indirect
+	github.com/Muxcore-Media/contracts-reconciler v0.0.0-20260526214139-5692629c5d6e // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
