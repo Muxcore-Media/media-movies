@@ -4,10 +4,10 @@ go 1.26.6
 
 require (
 	github.com/Muxcore-Media/contracts-media-admin v0.1.1
-	github.com/Muxcore-Media/core v0.6.7
+	github.com/Muxcore-Media/core v0.6.12
 	github.com/Muxcore-Media/core/pkg/contracts v0.6.0
-	github.com/Muxcore-Media/core/sdk/go/client v0.6.0
-	github.com/Muxcore-Media/core/sdk/go/module v0.6.1
+	github.com/Muxcore-Media/core/sdk/go/client v0.6.1
+	github.com/Muxcore-Media/core/sdk/go/module v0.6.3
 	github.com/Muxcore-Media/media-automation v0.1.46
 	github.com/Muxcore-Media/media-root-folders v0.1.7
 	github.com/Muxcore-Media/metadata-tmdb v0.1.6
