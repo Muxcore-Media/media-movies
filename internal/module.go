@@ -1298,6 +1298,10 @@ func (m *Module) scanSingle(row *sql.Row) *mgmntv1.MovieItem {
 // ── File Management ────────────────────────────────────────────
 
 func (m *Module) AddFile(ctx context.Context, req *mgmntv1.AddFileRequest) (*mgmntv1.AddFileResponse, error) {
+	filePath, err := m.confineMediaFile(ctx, req.GetFilePath(), "movies")
+	if err != nil {
+		return nil, err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.db == nil {
@@ -1307,9 +1311,9 @@ func (m *Module) AddFile(ctx context.Context, req *mgmntv1.AddFileRequest) (*mgm
 	now := time.Now().UTC().Format(time.RFC3339)
 	id := fmt.Sprintf("mf_%d", time.Now().UnixNano())
 
-	_, err := m.db.ExecContext(ctx,
+	_, err = m.db.ExecContext(ctx,
 		`INSERT INTO movie_files (id, movie_id, file_path, quality, size_bytes, container, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		id, req.GetMovieId(), req.GetFilePath(), req.GetQuality(), req.GetSizeBytes(), req.GetContainer(), now,
+		id, req.GetMovieId(), filePath, req.GetQuality(), req.GetSizeBytes(), req.GetContainer(), now,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert file: %w", err)
@@ -1326,12 +1330,12 @@ func (m *Module) AddFile(ctx context.Context, req *mgmntv1.AddFileRequest) (*mgm
 		ItemID:    req.GetMovieId(),
 		Title:     title,
 		Quality:   req.GetQuality(),
-		FilePath:  req.GetFilePath(),
+		FilePath:  filePath,
 		Data:      map[string]any{"file_id": id, "container": req.GetContainer(), "size_bytes": req.GetSizeBytes()},
 	})
 
 	go m.publish(context.Background(), contracts.EventMovieFileAdded, map[string]interface{}{
-		"file_id": id, "movie_id": req.GetMovieId(), "file_path": req.GetFilePath(), "quality": req.GetQuality(),
+		"file_id": id, "movie_id": req.GetMovieId(), "file_path": filePath, "quality": req.GetQuality(),
 	})
 
 	return &mgmntv1.AddFileResponse{FileId: id}, nil

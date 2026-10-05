@@ -36,3 +36,46 @@ func TestSafeDeleteMediaFile(t *testing.T) {
 		t.Fatal("path outside root must not be deleted")
 	}
 }
+
+func TestSafeDeleteMediaFileSymlinkAndSibling(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "lib")
+	evil := filepath.Join(base, "lib-evil")
+	outside := filepath.Join(base, "outside")
+	for _, d := range []string{root, evil, outside} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	victim := filepath.Join(outside, "victim.mkv")
+	sib := filepath.Join(evil, "sib.mkv")
+	for _, f := range []string{victim, sib} {
+		if err := os.WriteFile(f, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// directory symlink inside root pointing outside
+	if err := os.Symlink(outside, filepath.Join(root, "dirlink")); err != nil {
+		t.Fatal(err)
+	}
+	_ = safeDeleteMediaFile(filepath.Join(root, "dirlink", "victim.mkv"), root)
+	_ = safeDeleteMediaFile(sib, root)
+	for _, f := range []string{victim, sib} {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("%s must survive: %v", f, err)
+		}
+	}
+	// file symlink inside root: the link is unlinked, the target survives
+	if err := os.Symlink(victim, filepath.Join(root, "filelink.mkv")); err != nil {
+		t.Fatal(err)
+	}
+	if err := safeDeleteMediaFile(filepath.Join(root, "filelink.mkv"), root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(victim); err != nil {
+		t.Error("symlink target must survive")
+	}
+	if _, err := os.Lstat(filepath.Join(root, "filelink.mkv")); !os.IsNotExist(err) {
+		t.Error("link itself should be removed")
+	}
+}

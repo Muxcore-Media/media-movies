@@ -31,6 +31,7 @@ func TestFileImportedHandledShortlyAfterStart(t *testing.T) {
 		GRPCAddr: "127.0.0.1:0",
 		HTTPAddr: "127.0.0.1:0",
 	})
+	setRoots(m, "/library/movies")
 	ctx := context.Background()
 	if err := m.Init(ctx); err != nil {
 		t.Fatal(err)

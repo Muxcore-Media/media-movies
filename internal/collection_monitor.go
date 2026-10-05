@@ -88,6 +88,11 @@ func (m *Module) GetCollectionPrefs(ctx context.Context, req *mgmntv1.GetCollect
 }
 
 func (m *Module) SetCollectionMonitored(ctx context.Context, req *mgmntv1.SetCollectionMonitoredRequest) (*mgmntv1.SetCollectionMonitoredResponse, error) {
+	// Validate the root before taking m.mu: root lookup may need the lock.
+	reqRoot, err := m.resolveRootFolderPath(ctx, req.GetRootFolderPath(), "movies")
+	if err != nil {
+		return nil, err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.db == nil {
@@ -106,7 +111,7 @@ func (m *Module) SetCollectionMonitored(ctx context.Context, req *mgmntv1.SetCol
 	if quality == "" {
 		quality = cur.GetQualityProfileId()
 	}
-	root := strings.TrimSpace(req.GetRootFolderPath())
+	root := reqRoot
 	if root == "" {
 		root = cur.GetRootFolderPath()
 	}
@@ -120,7 +125,7 @@ func (m *Module) SetCollectionMonitored(ctx context.Context, req *mgmntv1.SetCol
 	if searchOnAdd {
 		search = 1
 	}
-	_, err := m.db.ExecContext(ctx, `
+	_, err = m.db.ExecContext(ctx, `
 		INSERT INTO collection_prefs (collection_id, name, monitored, search_on_add, quality_profile_id, root_folder_path, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(collection_id) DO UPDATE SET
