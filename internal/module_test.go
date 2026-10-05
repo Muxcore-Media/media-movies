@@ -959,3 +959,34 @@ func TestPersistReleaseDateAndYearPendingCalendar(t *testing.T) {
 		t.Fatalf("after persist=%+v", items)
 	}
 }
+
+func TestSortColumnForField(t *testing.T) {
+	cases := map[mediaadminv1.SortField]string{
+		mediaadminv1.SortField_SORT_FIELD_UNSPECIFIED: "title",
+		mediaadminv1.SortField_SORT_FIELD_TITLE:       "title",
+		mediaadminv1.SortField_SORT_FIELD_YEAR:        "year",
+		mediaadminv1.SortField_SORT_FIELD_CREATED_AT:  "created_at",
+		mediaadminv1.SortField_SORT_FIELD_UPDATED_AT:  "updated_at",
+		mediaadminv1.SortField_SORT_FIELD_RUNTIME:     "runtime",
+		mediaadminv1.SortField_SORT_FIELD_RATING:      "vote_average",
+		mediaadminv1.SortField(99):                    "title",
+	}
+	for f, want := range cases {
+		if got := sortColumnForField(f); got != want {
+			t.Errorf("%v: got %q want %q", f, got, want)
+		}
+	}
+}
+
+func TestListItemsSortFields(t *testing.T) {
+	m := newTestModule(t)
+	for f := range mediaadminv1.SortField_name {
+		for _, ord := range []string{"asc", "desc"} {
+			if _, err := m.ListItems(context.Background(), &mediaadminv1.ListItemsRequest{
+				Page: 1, PageSize: 20, SortBy: mediaadminv1.SortField(f), SortOrder: ord,
+			}); err != nil {
+				t.Fatalf("sort %d %s: %v", f, ord, err)
+			}
+		}
+	}
+}
