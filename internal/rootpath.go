@@ -6,9 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
+	"github.com/Muxcore-Media/core/sdk/go/module/meshtls"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
 )
 
@@ -90,7 +88,7 @@ func (m *Module) ensureRoots(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := meshtls.Dial(addr)
 	if err != nil {
 		return fmt.Errorf("dial roots: %w", err)
 	}
