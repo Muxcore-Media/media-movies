@@ -106,10 +106,11 @@ func (m *Module) ensureRoots(ctx context.Context) error {
 }
 
 func (m *Module) findRootsAddr(ctx context.Context) (string, error) {
-	if m.mc == nil {
+	mc := m.coreClient()
+	if mc == nil {
 		return "", fmt.Errorf("not connected to core")
 	}
-	modules, err := m.mc.Discovery.FindByCapability(ctx, "media.roots")
+	modules, err := mc.Discovery.FindByCapability(ctx, "media.roots")
 	if err != nil {
 		return "", fmt.Errorf("discover media.roots: %w", err)
 	}
