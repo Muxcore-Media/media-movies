@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.13] - 2026-10-05
+
+### Changed
+- Requires media-automation v0.1.46.
+
 ## [0.1.11] - 2026-10-05
 
 ### Changed

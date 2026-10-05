@@ -7,7 +7,7 @@ require (
 	github.com/Muxcore-Media/core/pkg/contracts v0.6.0
 	github.com/Muxcore-Media/core/sdk/go/client v0.6.0
 	github.com/Muxcore-Media/core/sdk/go/module v0.6.0
-	github.com/Muxcore-Media/media-automation v0.1.8
+	github.com/Muxcore-Media/media-automation v0.1.46
 	github.com/Muxcore-Media/media-root-folders v0.1.7
 	github.com/Muxcore-Media/metadata-tmdb v0.1.6
 	google.golang.org/grpc v1.83.2
@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/Muxcore-Media/core v0.6.0 // indirect
+	github.com/Muxcore-Media/core v0.6.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
