@@ -30,12 +30,20 @@ func newTestModule(t *testing.T) *Module {
 		GRPCAddr: ":0",
 		HTTPAddr: ":0",
 	})
+	m.rootsListFn = func(context.Context, string) ([]string, error) {
+		return []string{"/media/movies", "/media/movies-uhd", "/media", "/movies", "/tmp", "/data/media/Movies"}, nil
+	}
 	ctx := context.Background()
 	if err := m.Init(ctx); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	t.Cleanup(func() { _ = m.Stop(ctx) })
 	return m
+}
+
+// setRoots overrides the registered movie roots for a test.
+func setRoots(m *Module, roots ...string) {
+	m.rootsListFn = func(context.Context, string) ([]string, error) { return roots, nil }
 }
 
 func TestModuleInfo(t *testing.T) {
@@ -135,6 +143,7 @@ func TestRemoveMovieDeleteFiles(t *testing.T) {
 	m := newTestModule(t)
 	ctx := context.Background()
 	root := t.TempDir()
+	setRoots(m, root)
 	dir := filepath.Join(root, "Movies", "Fight Club (1999)")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
@@ -571,6 +580,7 @@ func TestCacheRemoteArtwork(t *testing.T) {
 		_, _ = w.Write([]byte{0xff, 0xd8, 0xff, 0xd9})
 	}))
 	t.Cleanup(srv.Close)
+	allowLoopbackArtwork(t, srv)
 
 	add, err := m.AddMovie(ctx, &mgmntv1.AddMovieRequest{TmdbId: 1, Title: "Art", Year: 2020})
 	if err != nil {

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.21] - 2026-10-05
+
+
+### Security
+- Artwork (poster/backdrop) downloads use the netguard UserURL client: private, loopback, link-local and cloud-metadata targets are blocked at dial time and on every redirect (NFR-SEC-009 / RULE-VAL-2; sdk/go/module v0.6.6).
+- Root-folder validation fails closed: if the media.roots registry is unreachable, `root_folder_path` (AddMovie, UpdateMovie, SetCollectionMonitored) is refused instead of accepted; collection-prefs root is now validated against registered roots (NFR-SEC-008 / RULE-VAL-1).
+- AddFile confines `file_path` to registered movie roots (pathguard: traversal, symlink and sibling-prefix escapes rejected).
+- File deletion on RemoveMovie/RemoveFile resolves symlinks (pathguard) and unlinks links rather than following them.
+
 ## [0.1.20] - 2026-10-05
 
 

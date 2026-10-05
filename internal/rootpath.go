@@ -2,11 +2,13 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/Muxcore-Media/core/sdk/go/module/meshtls"
+	"github.com/Muxcore-Media/core/sdk/go/module/pathguard"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
 )
 
@@ -23,7 +25,8 @@ func normalizeRootFolderPath(path string) (string, error) {
 
 // resolveRootFolderPath normalizes path and, when media.roots is reachable,
 // requires it to match a registered root for mediaKind. Empty path is allowed.
-// When the roots module is unavailable, the cleaned path is accepted (soft).
+// When the roots module is unavailable the path is refused (fail closed,
+// RULE-VAL-1).
 func (m *Module) resolveRootFolderPath(ctx context.Context, path, mediaKind string) (string, error) {
 	cleaned, err := normalizeRootFolderPath(path)
 	if err != nil {
@@ -38,14 +41,54 @@ func (m *Module) resolveRootFolderPath(ctx context.Context, path, mediaKind stri
 		return "", err
 	}
 	if !available {
-		return cleaned, nil
+		return "", errRootsUnavailable
 	}
 	for _, p := range paths {
-		if p == cleaned {
+		if filepath.Clean(p) == cleaned {
 			return cleaned, nil
 		}
 	}
 	return "", fmt.Errorf("root_folder_path %q is not a registered root", cleaned)
+}
+
+var errRootsUnavailable = errors.New("registered roots unavailable (media.roots not reachable); refusing path")
+
+// confineMediaFile validates a media file path against the registered roots
+// for mediaKind: it must be absolute, free of traversal, and (after symlink
+// resolution) inside a registered root. Fails closed when roots are unknown.
+//
+// Relative paths are opaque storage keys (never resolved against the
+// filesystem by this module); they are accepted only when free of NUL bytes
+// and ".." segments.
+func (m *Module) confineMediaFile(ctx context.Context, path, mediaKind string) (string, error) {
+	if path != "" && !filepath.IsAbs(path) {
+		if strings.ContainsRune(path, 0) {
+			return "", fmt.Errorf("file_path: %w", pathguard.ErrInvalidPath)
+		}
+		for _, seg := range strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' }) {
+			if seg == ".." {
+				return "", fmt.Errorf("file_path %q: %w: contains \"..\" segment", path, pathguard.ErrInvalidPath)
+			}
+		}
+		return path, nil
+	}
+	paths, available, err := m.listRegisteredRootPaths(ctx, mediaKind)
+	if err != nil {
+		return "", err
+	}
+	if !available {
+		return "", errRootsUnavailable
+	}
+	roots := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if p = filepath.Clean(strings.TrimSpace(p)); filepath.IsAbs(p) {
+			roots = append(roots, p)
+		}
+	}
+	if _, err := pathguard.Confine(path, roots); err != nil {
+		return "", fmt.Errorf("file_path %q: %w", path, err)
+	}
+	return filepath.Clean(path), nil
 }
 
 func (m *Module) listRegisteredRootPaths(ctx context.Context, mediaKind string) ([]string, bool, error) {

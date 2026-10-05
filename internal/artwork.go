@@ -12,6 +12,7 @@ import (
 	"time"
 
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
+	"github.com/Muxcore-Media/core/sdk/go/module/netguard"
 )
 
 const (
@@ -19,7 +20,12 @@ const (
 	tmdbImageBase   = "https://image.tmdb.org/t/p/original"
 )
 
-var artworkHTTPClient = &http.Client{Timeout: 30 * time.Second}
+// artworkHTTPClient guards artwork fetches (NFR-SEC-009 / RULE-VAL-2): poster and
+// backdrop URLs come from AddMovie/ImportMovie callers, so they are untrusted
+// and must never reach private, loopback or metadata addresses.
+// artworkHTTPClient enforces the UserURL profile on the initial URL, at dial
+// time (DNS rebinding) and on every redirect.
+var artworkHTTPClient = netguard.NewClient(netguard.UserURL, netguard.Options{Timeout: 30 * time.Second})
 
 func resolveRemoteURL(urlOrPath string) string {
 	if urlOrPath == "" {
@@ -155,7 +161,7 @@ func (m *Module) cacheRemoteArtwork(ctx context.Context, itemID, kind, remoteURL
 	}
 	resp, err := artworkHTTPClient.Do(req)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("download artwork: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
