@@ -19,23 +19,20 @@ import (
 	"sync/atomic"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
-
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 	"github.com/Muxcore-Media/core/pkg/contracts"
 	eventsv1 "github.com/Muxcore-Media/core/proto/gen/muxcore/events/v1"
 	"github.com/Muxcore-Media/core/sdk/go/client"
 	modulesdk "github.com/Muxcore-Media/core/sdk/go/module"
+	"github.com/Muxcore-Media/core/sdk/go/module/meshtls"
 	automationv1 "github.com/Muxcore-Media/media-automation/proto/automationv1"
 	manifest "github.com/Muxcore-Media/media-movies"
-	"github.com/Muxcore-Media/media-movies/internal/grpctls"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	rootsv1 "github.com/Muxcore-Media/media-root-folders/proto/rootsv1"
 	metadatav1 "github.com/Muxcore-Media/metadata-tmdb/proto/metadatav1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
 )
 
@@ -304,21 +301,19 @@ func (m *Module) Init(ctx context.Context) error {
 }
 
 func (m *Module) Start(ctx context.Context) error {
-	var grpcOpts []grpc.ServerOption
-	tlsCfg, err := grpctls.ServerConfig()
+	srv, err := meshtls.NewServer()
 	if err != nil {
 		return fmt.Errorf("gRPC TLS: %w", err)
 	}
-	if tlsCfg != nil {
-		grpcOpts = append(grpcOpts, grpc.Creds(credentials.NewTLS(tlsCfg)))
-		slog.Info("media-movies gRPC TLS enabled", "addr", m.grpcAddr)
-	} else {
+	if meshtls.Insecure() {
 		slog.Warn("media-movies gRPC listening without TLS (dev only)",
 			"addr", m.grpcAddr,
 			"hint", "unset MUXCORE_INSECURE_DISABLE_TLS for production",
 		)
+	} else {
+		slog.Info("media-movies gRPC TLS enabled", "addr", m.grpcAddr)
 	}
-	m.grpcSrv = grpc.NewServer(grpcOpts...)
+	m.grpcSrv = srv
 	mediaadminv1.RegisterMediaAdminServiceServer(m.grpcSrv, mediaAdminServer{m: m})
 	mgmntv1.RegisterMovieManagementServiceServer(m.grpcSrv, m)
 	modulesdk.RegisterSettings(m.grpcSrv, m.id, m)
@@ -637,7 +632,7 @@ func (m *Module) searchMovieMetadata(ctx context.Context, title string, year int
 	if err != nil {
 		return nil, err
 	}
-	conn, err := grpc.NewClient(metaAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := meshtls.Dial(metaAddr)
 	if err != nil {
 		return nil, fmt.Errorf("dial metadata: %w", err)
 	}
@@ -708,7 +703,7 @@ func (m *Module) findMetadataAddr(ctx context.Context) (string, error) {
 // resolveGRPCAddr prefers loopback when plaintext is explicitly enabled and the
 // bind address would otherwise listen on all interfaces.
 func resolveGRPCAddr(addr string) string {
-	if !grpctls.InsecureAllowed() {
+	if !meshtls.Insecure() {
 		return addr
 	}
 	host, port, err := net.SplitHostPort(addr)
@@ -966,7 +961,7 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 		return nil, err
 	}
 
-	conn, err := grpc.NewClient(metaAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := meshtls.Dial(metaAddr)
 	if err != nil {
 		return nil, fmt.Errorf("dial metadata: %w", err)
 	}

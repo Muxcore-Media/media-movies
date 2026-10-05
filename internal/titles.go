@@ -9,9 +9,7 @@ import (
 	"time"
 	"unicode"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
+	"github.com/Muxcore-Media/core/sdk/go/module/meshtls"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
 	metadatav1 "github.com/Muxcore-Media/metadata-tmdb/proto/metadatav1"
 )
@@ -174,7 +172,7 @@ func (m *Module) fetchMovieAlternativeTitles(ctx context.Context, tmdbID int32) 
 	if err != nil {
 		return nil, err
 	}
-	conn, err := grpc.NewClient(metaAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := meshtls.Dial(metaAddr)
 	if err != nil {
 		return nil, err
 	}
