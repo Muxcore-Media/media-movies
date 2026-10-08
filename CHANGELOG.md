@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.23] - 2026-10-08
+
+Version skips v0.1.22 (and, for media-tvshows, v0.1.21): tags with those numbers exist on unmerged branches that add an unauthenticated `content_rating` and are not part of this history.
 
 ### Added
 - Parental classification authority (ADR-0031 Decision 2, T-M4-01 slice S2): `MovieItem` gains `content_rating`, `content_rating_source` (`operator`) and `tag_labels`; new `SetContentRating` RPC stores an operator rating, an explicit `NR` (`explicit_unrated`), or clears it; unknown tokens are rejected with `InvalidArgument`. `ListMovies` accepts an optional narrowing `classification_filter` (max rating, allow_unrated, blocked/allowed tags) whose `total` and pagination count only visible items. Items with no recorded rating are *unavailable* and never visible to an enabled filter. Existing rows migrate to unavailable via the new `movie_content_rating` table (created idempotently at startup); nothing is inferred from existing data and there is no `tmdb` source yet. Proto field 25 on `MovieItem` is reserved (used by the unmerged v0.1.22 tag); new fields are 26-28 and `classification_filter` is 8. Authorization stays with the BFF, as for `SetItemTags`.
