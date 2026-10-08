@@ -18,6 +18,10 @@ service MovieManagementService {
   rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
   rpc SetItemTags(SetItemTagsRequest) returns (SetItemTagsResponse);
   rpc GetItemTags(GetItemTagsRequest) returns (GetItemTagsResponse);
+  // SetContentRating records the operator's parental classification for a
+  // movie (ADR-0031 Decision 2). No caller authorization is checked here:
+  // the consumer BFF restricts it to admins, like SetItemTags.
+  rpc SetContentRating(SetContentRatingRequest) returns (SetContentRatingResponse);
   rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
   rpc GetCollectionMovies(GetCollectionMoviesRequest) returns (GetCollectionMoviesResponse);
   rpc GetCollectionPrefs(GetCollectionPrefsRequest) returns (GetCollectionPrefsResponse);
@@ -65,6 +69,27 @@ message ListMoviesRequest {
   string sort_by = 5;
   string sort_order = 6;
   string tag_id = 7;
+  // Optional parental narrowing (ADR-0031 Decision 2.1). It can only hide
+  // items: with it unset or enabled=false the result is unchanged, and when
+  // enabled, total and pagination count only the visible items.
+  ClassificationFilter classification_filter = 8;
+}
+
+// ClassificationFilter hides items a restricted principal may not see. It is
+// evaluated per ADR-0031 Decision 2.6: an item with no recorded rating
+// (unavailable) is always hidden, an explicit NR is visible only when
+// allow_unrated is set, a rated item must not exceed max_rating, a blocked tag
+// hides the item, and a non-empty allowed_tags requires one match that never
+// overrides a rating denial. Tags compare by exact case-folded match.
+// Unknown tokens or empty tags are rejected with InvalidArgument.
+message ClassificationFilter {
+  bool enabled = 1;
+  // Rating ceiling token on the ADR-0031 ladder (for example "PG-13"). Empty
+  // means no ceiling. The BFF resolves kids_mode to "PG" before calling.
+  string max_rating = 2;
+  bool allow_unrated = 3;
+  repeated string blocked_tags = 4;
+  repeated string allowed_tags = 5;
 }
 
 message ListMoviesResponse {
@@ -139,6 +164,18 @@ message MovieItem {
   string root_folder_path = 22;
   int32 collection_id = 23;
   string collection_name = 24;
+  // Field 25 was used for an unauthenticated content_rating by the unmerged
+  // v0.1.22 tag (never on master). It is reserved and never read, so that
+  // value cannot be mistaken for a classification.
+  reserved 25;
+  // Parental classification (ADR-0031 Decision 2). content_rating is a ladder
+  // token, or "NR" for an explicit unrated record. Empty rating with empty
+  // source means "unavailable" (nothing recorded), never "unrated".
+  string content_rating = 26;
+  // "operator" | "" ("tmdb" is reserved for a later slice).
+  string content_rating_source = 27;
+  // Labels of the item's operator tags, sorted, so list routes need no N+1.
+  repeated string tag_labels = 28;
 }
 
 message AddFileRequest {
@@ -218,6 +255,16 @@ message GetItemTagsRequest {
 message GetItemTagsResponse {
   repeated Tag tags = 1;
 }
+
+message SetContentRatingRequest {
+  string movie_id = 1;
+  // Ladder token. Empty with explicit_unrated=false clears the operator value.
+  string content_rating = 2;
+  // Records an explicit NR; content_rating must then be empty.
+  bool explicit_unrated = 3;
+}
+
+message SetContentRatingResponse {}
 
 message ListCollectionsRequest {}
 

@@ -189,6 +189,14 @@ func (m *Module) GetCollectionMovies(ctx context.Context, req *mgmntv1.GetCollec
 			movies = append(movies, movie)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Release the connection before the classification lookups (pool size 1).
+	_ = rows.Close()
+	if err := m.attachClassification(ctx, movies...); err != nil {
+		return nil, err
+	}
 	return &mgmntv1.GetCollectionMoviesResponse{
 		CollectionId: req.GetCollectionId(),
 		Name:         name,

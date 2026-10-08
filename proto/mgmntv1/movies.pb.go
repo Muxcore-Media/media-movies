@@ -342,16 +342,20 @@ func (*RefreshMetadataResponse) Descriptor() ([]byte, []int) {
 }
 
 type ListMoviesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	Search        string                 `protobuf:"bytes,3,opt,name=search,proto3" json:"search,omitempty"`
-	Genre         string                 `protobuf:"bytes,4,opt,name=genre,proto3" json:"genre,omitempty"`
-	SortBy        string                 `protobuf:"bytes,5,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
-	SortOrder     string                 `protobuf:"bytes,6,opt,name=sort_order,json=sortOrder,proto3" json:"sort_order,omitempty"`
-	TagId         string                 `protobuf:"bytes,7,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Page      int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize  int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Search    string                 `protobuf:"bytes,3,opt,name=search,proto3" json:"search,omitempty"`
+	Genre     string                 `protobuf:"bytes,4,opt,name=genre,proto3" json:"genre,omitempty"`
+	SortBy    string                 `protobuf:"bytes,5,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
+	SortOrder string                 `protobuf:"bytes,6,opt,name=sort_order,json=sortOrder,proto3" json:"sort_order,omitempty"`
+	TagId     string                 `protobuf:"bytes,7,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
+	// Optional parental narrowing (ADR-0031 Decision 2.1). It can only hide
+	// items: with it unset or enabled=false the result is unchanged, and when
+	// enabled, total and pagination count only the visible items.
+	ClassificationFilter *ClassificationFilter `protobuf:"bytes,8,opt,name=classification_filter,json=classificationFilter,proto3" json:"classification_filter,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ListMoviesRequest) Reset() {
@@ -433,6 +437,98 @@ func (x *ListMoviesRequest) GetTagId() string {
 	return ""
 }
 
+func (x *ListMoviesRequest) GetClassificationFilter() *ClassificationFilter {
+	if x != nil {
+		return x.ClassificationFilter
+	}
+	return nil
+}
+
+// ClassificationFilter hides items a restricted principal may not see. It is
+// evaluated per ADR-0031 Decision 2.6: an item with no recorded rating
+// (unavailable) is always hidden, an explicit NR is visible only when
+// allow_unrated is set, a rated item must not exceed max_rating, a blocked tag
+// hides the item, and a non-empty allowed_tags requires one match that never
+// overrides a rating denial. Tags compare by exact case-folded match.
+// Unknown tokens or empty tags are rejected with InvalidArgument.
+type ClassificationFilter struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Enabled bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Rating ceiling token on the ADR-0031 ladder (for example "PG-13"). Empty
+	// means no ceiling. The BFF resolves kids_mode to "PG" before calling.
+	MaxRating     string   `protobuf:"bytes,2,opt,name=max_rating,json=maxRating,proto3" json:"max_rating,omitempty"`
+	AllowUnrated  bool     `protobuf:"varint,3,opt,name=allow_unrated,json=allowUnrated,proto3" json:"allow_unrated,omitempty"`
+	BlockedTags   []string `protobuf:"bytes,4,rep,name=blocked_tags,json=blockedTags,proto3" json:"blocked_tags,omitempty"`
+	AllowedTags   []string `protobuf:"bytes,5,rep,name=allowed_tags,json=allowedTags,proto3" json:"allowed_tags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClassificationFilter) Reset() {
+	*x = ClassificationFilter{}
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClassificationFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClassificationFilter) ProtoMessage() {}
+
+func (x *ClassificationFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClassificationFilter.ProtoReflect.Descriptor instead.
+func (*ClassificationFilter) Descriptor() ([]byte, []int) {
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ClassificationFilter) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *ClassificationFilter) GetMaxRating() string {
+	if x != nil {
+		return x.MaxRating
+	}
+	return ""
+}
+
+func (x *ClassificationFilter) GetAllowUnrated() bool {
+	if x != nil {
+		return x.AllowUnrated
+	}
+	return false
+}
+
+func (x *ClassificationFilter) GetBlockedTags() []string {
+	if x != nil {
+		return x.BlockedTags
+	}
+	return nil
+}
+
+func (x *ClassificationFilter) GetAllowedTags() []string {
+	if x != nil {
+		return x.AllowedTags
+	}
+	return nil
+}
+
 type ListMoviesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Movies        []*MovieItem           `protobuf:"bytes,1,rep,name=movies,proto3" json:"movies,omitempty"`
@@ -445,7 +541,7 @@ type ListMoviesResponse struct {
 
 func (x *ListMoviesResponse) Reset() {
 	*x = ListMoviesResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[7]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -457,7 +553,7 @@ func (x *ListMoviesResponse) String() string {
 func (*ListMoviesResponse) ProtoMessage() {}
 
 func (x *ListMoviesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[7]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -470,7 +566,7 @@ func (x *ListMoviesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMoviesResponse.ProtoReflect.Descriptor instead.
 func (*ListMoviesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{7}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListMoviesResponse) GetMovies() []*MovieItem {
@@ -511,7 +607,7 @@ type ListMissingRequest struct {
 
 func (x *ListMissingRequest) Reset() {
 	*x = ListMissingRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[8]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -523,7 +619,7 @@ func (x *ListMissingRequest) String() string {
 func (*ListMissingRequest) ProtoMessage() {}
 
 func (x *ListMissingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[8]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -536,7 +632,7 @@ func (x *ListMissingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMissingRequest.ProtoReflect.Descriptor instead.
 func (*ListMissingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{8}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListMissingRequest) GetPage() int32 {
@@ -565,7 +661,7 @@ type ListMissingResponse struct {
 
 func (x *ListMissingResponse) Reset() {
 	*x = ListMissingResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[9]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -577,7 +673,7 @@ func (x *ListMissingResponse) String() string {
 func (*ListMissingResponse) ProtoMessage() {}
 
 func (x *ListMissingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[9]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -590,7 +686,7 @@ func (x *ListMissingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMissingResponse.ProtoReflect.Descriptor instead.
 func (*ListMissingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{9}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListMissingResponse) GetItems() []*MissingMovieItem {
@@ -635,7 +731,7 @@ type MissingMovieItem struct {
 
 func (x *MissingMovieItem) Reset() {
 	*x = MissingMovieItem{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[10]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -647,7 +743,7 @@ func (x *MissingMovieItem) String() string {
 func (*MissingMovieItem) ProtoMessage() {}
 
 func (x *MissingMovieItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[10]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -660,7 +756,7 @@ func (x *MissingMovieItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MissingMovieItem.ProtoReflect.Descriptor instead.
 func (*MissingMovieItem) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{10}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *MissingMovieItem) GetMovieId() string {
@@ -714,7 +810,7 @@ type GetMovieRequest struct {
 
 func (x *GetMovieRequest) Reset() {
 	*x = GetMovieRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[11]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -726,7 +822,7 @@ func (x *GetMovieRequest) String() string {
 func (*GetMovieRequest) ProtoMessage() {}
 
 func (x *GetMovieRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[11]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -739,7 +835,7 @@ func (x *GetMovieRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMovieRequest.ProtoReflect.Descriptor instead.
 func (*GetMovieRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{11}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetMovieRequest) GetMovieId() string {
@@ -758,7 +854,7 @@ type GetMovieResponse struct {
 
 func (x *GetMovieResponse) Reset() {
 	*x = GetMovieResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[12]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -770,7 +866,7 @@ func (x *GetMovieResponse) String() string {
 func (*GetMovieResponse) ProtoMessage() {}
 
 func (x *GetMovieResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[12]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -783,7 +879,7 @@ func (x *GetMovieResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMovieResponse.ProtoReflect.Descriptor instead.
 func (*GetMovieResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{12}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetMovieResponse) GetMovie() *MovieItem {
@@ -805,7 +901,7 @@ type UpdateMovieRequest struct {
 
 func (x *UpdateMovieRequest) Reset() {
 	*x = UpdateMovieRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[13]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -817,7 +913,7 @@ func (x *UpdateMovieRequest) String() string {
 func (*UpdateMovieRequest) ProtoMessage() {}
 
 func (x *UpdateMovieRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[13]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -830,7 +926,7 @@ func (x *UpdateMovieRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMovieRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMovieRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{13}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdateMovieRequest) GetMovieId() string {
@@ -870,7 +966,7 @@ type UpdateMovieResponse struct {
 
 func (x *UpdateMovieResponse) Reset() {
 	*x = UpdateMovieResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[14]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -882,7 +978,7 @@ func (x *UpdateMovieResponse) String() string {
 func (*UpdateMovieResponse) ProtoMessage() {}
 
 func (x *UpdateMovieResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[14]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -895,7 +991,7 @@ func (x *UpdateMovieResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMovieResponse.ProtoReflect.Descriptor instead.
 func (*UpdateMovieResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{14}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateMovieResponse) GetMovie() *MovieItem {
@@ -931,13 +1027,21 @@ type MovieItem struct {
 	RootFolderPath   string                 `protobuf:"bytes,22,opt,name=root_folder_path,json=rootFolderPath,proto3" json:"root_folder_path,omitempty"`
 	CollectionId     int32                  `protobuf:"varint,23,opt,name=collection_id,json=collectionId,proto3" json:"collection_id,omitempty"`
 	CollectionName   string                 `protobuf:"bytes,24,opt,name=collection_name,json=collectionName,proto3" json:"collection_name,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Parental classification (ADR-0031 Decision 2). content_rating is a ladder
+	// token, or "NR" for an explicit unrated record. Empty rating with empty
+	// source means "unavailable" (nothing recorded), never "unrated".
+	ContentRating string `protobuf:"bytes,26,opt,name=content_rating,json=contentRating,proto3" json:"content_rating,omitempty"`
+	// "operator" | "" ("tmdb" is reserved for a later slice).
+	ContentRatingSource string `protobuf:"bytes,27,opt,name=content_rating_source,json=contentRatingSource,proto3" json:"content_rating_source,omitempty"`
+	// Labels of the item's operator tags, sorted, so list routes need no N+1.
+	TagLabels     []string `protobuf:"bytes,28,rep,name=tag_labels,json=tagLabels,proto3" json:"tag_labels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MovieItem) Reset() {
 	*x = MovieItem{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[15]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -949,7 +1053,7 @@ func (x *MovieItem) String() string {
 func (*MovieItem) ProtoMessage() {}
 
 func (x *MovieItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[15]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -962,7 +1066,7 @@ func (x *MovieItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MovieItem.ProtoReflect.Descriptor instead.
 func (*MovieItem) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{15}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *MovieItem) GetId() string {
@@ -1133,6 +1237,27 @@ func (x *MovieItem) GetCollectionName() string {
 	return ""
 }
 
+func (x *MovieItem) GetContentRating() string {
+	if x != nil {
+		return x.ContentRating
+	}
+	return ""
+}
+
+func (x *MovieItem) GetContentRatingSource() string {
+	if x != nil {
+		return x.ContentRatingSource
+	}
+	return ""
+}
+
+func (x *MovieItem) GetTagLabels() []string {
+	if x != nil {
+		return x.TagLabels
+	}
+	return nil
+}
+
 type AddFileRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MovieId       string                 `protobuf:"bytes,1,opt,name=movie_id,json=movieId,proto3" json:"movie_id,omitempty"`
@@ -1146,7 +1271,7 @@ type AddFileRequest struct {
 
 func (x *AddFileRequest) Reset() {
 	*x = AddFileRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[16]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1158,7 +1283,7 @@ func (x *AddFileRequest) String() string {
 func (*AddFileRequest) ProtoMessage() {}
 
 func (x *AddFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[16]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1171,7 +1296,7 @@ func (x *AddFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddFileRequest.ProtoReflect.Descriptor instead.
 func (*AddFileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{16}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AddFileRequest) GetMovieId() string {
@@ -1218,7 +1343,7 @@ type AddFileResponse struct {
 
 func (x *AddFileResponse) Reset() {
 	*x = AddFileResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[17]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1230,7 +1355,7 @@ func (x *AddFileResponse) String() string {
 func (*AddFileResponse) ProtoMessage() {}
 
 func (x *AddFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[17]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1243,7 +1368,7 @@ func (x *AddFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddFileResponse.ProtoReflect.Descriptor instead.
 func (*AddFileResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{17}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AddFileResponse) GetFileId() string {
@@ -1263,7 +1388,7 @@ type RemoveFileRequest struct {
 
 func (x *RemoveFileRequest) Reset() {
 	*x = RemoveFileRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[18]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1275,7 +1400,7 @@ func (x *RemoveFileRequest) String() string {
 func (*RemoveFileRequest) ProtoMessage() {}
 
 func (x *RemoveFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[18]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1288,7 +1413,7 @@ func (x *RemoveFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveFileRequest.ProtoReflect.Descriptor instead.
 func (*RemoveFileRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{18}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *RemoveFileRequest) GetFileId() string {
@@ -1313,7 +1438,7 @@ type RemoveFileResponse struct {
 
 func (x *RemoveFileResponse) Reset() {
 	*x = RemoveFileResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[19]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1325,7 +1450,7 @@ func (x *RemoveFileResponse) String() string {
 func (*RemoveFileResponse) ProtoMessage() {}
 
 func (x *RemoveFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[19]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1338,7 +1463,7 @@ func (x *RemoveFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveFileResponse.ProtoReflect.Descriptor instead.
 func (*RemoveFileResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{19}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{20}
 }
 
 type ListFilesRequest struct {
@@ -1350,7 +1475,7 @@ type ListFilesRequest struct {
 
 func (x *ListFilesRequest) Reset() {
 	*x = ListFilesRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[20]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1362,7 +1487,7 @@ func (x *ListFilesRequest) String() string {
 func (*ListFilesRequest) ProtoMessage() {}
 
 func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[20]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1375,7 +1500,7 @@ func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListFilesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{20}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListFilesRequest) GetMovieId() string {
@@ -1394,7 +1519,7 @@ type ListFilesResponse struct {
 
 func (x *ListFilesResponse) Reset() {
 	*x = ListFilesResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[21]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1406,7 +1531,7 @@ func (x *ListFilesResponse) String() string {
 func (*ListFilesResponse) ProtoMessage() {}
 
 func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[21]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1419,7 +1544,7 @@ func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListFilesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{21}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListFilesResponse) GetFiles() []*MovieFile {
@@ -1444,7 +1569,7 @@ type MovieFile struct {
 
 func (x *MovieFile) Reset() {
 	*x = MovieFile{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[22]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1456,7 +1581,7 @@ func (x *MovieFile) String() string {
 func (*MovieFile) ProtoMessage() {}
 
 func (x *MovieFile) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[22]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1469,7 +1594,7 @@ func (x *MovieFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MovieFile.ProtoReflect.Descriptor instead.
 func (*MovieFile) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{22}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *MovieFile) GetId() string {
@@ -1530,7 +1655,7 @@ type CreateTagRequest struct {
 
 func (x *CreateTagRequest) Reset() {
 	*x = CreateTagRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[23]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1542,7 +1667,7 @@ func (x *CreateTagRequest) String() string {
 func (*CreateTagRequest) ProtoMessage() {}
 
 func (x *CreateTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[23]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1555,7 +1680,7 @@ func (x *CreateTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTagRequest.ProtoReflect.Descriptor instead.
 func (*CreateTagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{23}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CreateTagRequest) GetLabel() string {
@@ -1574,7 +1699,7 @@ type CreateTagResponse struct {
 
 func (x *CreateTagResponse) Reset() {
 	*x = CreateTagResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[24]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1586,7 +1711,7 @@ func (x *CreateTagResponse) String() string {
 func (*CreateTagResponse) ProtoMessage() {}
 
 func (x *CreateTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[24]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1599,7 +1724,7 @@ func (x *CreateTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTagResponse.ProtoReflect.Descriptor instead.
 func (*CreateTagResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{24}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CreateTagResponse) GetTagId() string {
@@ -1618,7 +1743,7 @@ type DeleteTagRequest struct {
 
 func (x *DeleteTagRequest) Reset() {
 	*x = DeleteTagRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[25]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1630,7 +1755,7 @@ func (x *DeleteTagRequest) String() string {
 func (*DeleteTagRequest) ProtoMessage() {}
 
 func (x *DeleteTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[25]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1643,7 +1768,7 @@ func (x *DeleteTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTagRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{25}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DeleteTagRequest) GetTagId() string {
@@ -1661,7 +1786,7 @@ type DeleteTagResponse struct {
 
 func (x *DeleteTagResponse) Reset() {
 	*x = DeleteTagResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[26]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1673,7 +1798,7 @@ func (x *DeleteTagResponse) String() string {
 func (*DeleteTagResponse) ProtoMessage() {}
 
 func (x *DeleteTagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[26]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1686,7 +1811,7 @@ func (x *DeleteTagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTagResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTagResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{26}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{27}
 }
 
 type ListTagsRequest struct {
@@ -1697,7 +1822,7 @@ type ListTagsRequest struct {
 
 func (x *ListTagsRequest) Reset() {
 	*x = ListTagsRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[27]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1709,7 +1834,7 @@ func (x *ListTagsRequest) String() string {
 func (*ListTagsRequest) ProtoMessage() {}
 
 func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[27]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1722,7 +1847,7 @@ func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsRequest.ProtoReflect.Descriptor instead.
 func (*ListTagsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{27}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{28}
 }
 
 type ListTagsResponse struct {
@@ -1734,7 +1859,7 @@ type ListTagsResponse struct {
 
 func (x *ListTagsResponse) Reset() {
 	*x = ListTagsResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[28]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1746,7 +1871,7 @@ func (x *ListTagsResponse) String() string {
 func (*ListTagsResponse) ProtoMessage() {}
 
 func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[28]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1759,7 +1884,7 @@ func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTagsResponse.ProtoReflect.Descriptor instead.
 func (*ListTagsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{28}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListTagsResponse) GetTags() []*Tag {
@@ -1780,7 +1905,7 @@ type Tag struct {
 
 func (x *Tag) Reset() {
 	*x = Tag{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[29]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1792,7 +1917,7 @@ func (x *Tag) String() string {
 func (*Tag) ProtoMessage() {}
 
 func (x *Tag) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[29]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1805,7 +1930,7 @@ func (x *Tag) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tag.ProtoReflect.Descriptor instead.
 func (*Tag) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{29}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Tag) GetId() string {
@@ -1839,7 +1964,7 @@ type SetItemTagsRequest struct {
 
 func (x *SetItemTagsRequest) Reset() {
 	*x = SetItemTagsRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[30]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1851,7 +1976,7 @@ func (x *SetItemTagsRequest) String() string {
 func (*SetItemTagsRequest) ProtoMessage() {}
 
 func (x *SetItemTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[30]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1864,7 +1989,7 @@ func (x *SetItemTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetItemTagsRequest.ProtoReflect.Descriptor instead.
 func (*SetItemTagsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{30}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SetItemTagsRequest) GetItemId() string {
@@ -1889,7 +2014,7 @@ type SetItemTagsResponse struct {
 
 func (x *SetItemTagsResponse) Reset() {
 	*x = SetItemTagsResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[31]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1901,7 +2026,7 @@ func (x *SetItemTagsResponse) String() string {
 func (*SetItemTagsResponse) ProtoMessage() {}
 
 func (x *SetItemTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[31]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1914,7 +2039,7 @@ func (x *SetItemTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetItemTagsResponse.ProtoReflect.Descriptor instead.
 func (*SetItemTagsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{31}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{32}
 }
 
 type GetItemTagsRequest struct {
@@ -1926,7 +2051,7 @@ type GetItemTagsRequest struct {
 
 func (x *GetItemTagsRequest) Reset() {
 	*x = GetItemTagsRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[32]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1938,7 +2063,7 @@ func (x *GetItemTagsRequest) String() string {
 func (*GetItemTagsRequest) ProtoMessage() {}
 
 func (x *GetItemTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[32]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1951,7 +2076,7 @@ func (x *GetItemTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetItemTagsRequest.ProtoReflect.Descriptor instead.
 func (*GetItemTagsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{32}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetItemTagsRequest) GetItemId() string {
@@ -1970,7 +2095,7 @@ type GetItemTagsResponse struct {
 
 func (x *GetItemTagsResponse) Reset() {
 	*x = GetItemTagsResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[33]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1982,7 +2107,7 @@ func (x *GetItemTagsResponse) String() string {
 func (*GetItemTagsResponse) ProtoMessage() {}
 
 func (x *GetItemTagsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[33]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1995,7 +2120,7 @@ func (x *GetItemTagsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetItemTagsResponse.ProtoReflect.Descriptor instead.
 func (*GetItemTagsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{33}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetItemTagsResponse) GetTags() []*Tag {
@@ -2003,6 +2128,104 @@ func (x *GetItemTagsResponse) GetTags() []*Tag {
 		return x.Tags
 	}
 	return nil
+}
+
+type SetContentRatingRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	MovieId string                 `protobuf:"bytes,1,opt,name=movie_id,json=movieId,proto3" json:"movie_id,omitempty"`
+	// Ladder token. Empty with explicit_unrated=false clears the operator value.
+	ContentRating string `protobuf:"bytes,2,opt,name=content_rating,json=contentRating,proto3" json:"content_rating,omitempty"`
+	// Records an explicit NR; content_rating must then be empty.
+	ExplicitUnrated bool `protobuf:"varint,3,opt,name=explicit_unrated,json=explicitUnrated,proto3" json:"explicit_unrated,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetContentRatingRequest) Reset() {
+	*x = SetContentRatingRequest{}
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetContentRatingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetContentRatingRequest) ProtoMessage() {}
+
+func (x *SetContentRatingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetContentRatingRequest.ProtoReflect.Descriptor instead.
+func (*SetContentRatingRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *SetContentRatingRequest) GetMovieId() string {
+	if x != nil {
+		return x.MovieId
+	}
+	return ""
+}
+
+func (x *SetContentRatingRequest) GetContentRating() string {
+	if x != nil {
+		return x.ContentRating
+	}
+	return ""
+}
+
+func (x *SetContentRatingRequest) GetExplicitUnrated() bool {
+	if x != nil {
+		return x.ExplicitUnrated
+	}
+	return false
+}
+
+type SetContentRatingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetContentRatingResponse) Reset() {
+	*x = SetContentRatingResponse{}
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetContentRatingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetContentRatingResponse) ProtoMessage() {}
+
+func (x *SetContentRatingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetContentRatingResponse.ProtoReflect.Descriptor instead.
+func (*SetContentRatingResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{36}
 }
 
 type ListCollectionsRequest struct {
@@ -2013,7 +2236,7 @@ type ListCollectionsRequest struct {
 
 func (x *ListCollectionsRequest) Reset() {
 	*x = ListCollectionsRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[34]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2025,7 +2248,7 @@ func (x *ListCollectionsRequest) String() string {
 func (*ListCollectionsRequest) ProtoMessage() {}
 
 func (x *ListCollectionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[34]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2038,7 +2261,7 @@ func (x *ListCollectionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCollectionsRequest.ProtoReflect.Descriptor instead.
 func (*ListCollectionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{34}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{37}
 }
 
 type ListCollectionsResponse struct {
@@ -2050,7 +2273,7 @@ type ListCollectionsResponse struct {
 
 func (x *ListCollectionsResponse) Reset() {
 	*x = ListCollectionsResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[35]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2062,7 +2285,7 @@ func (x *ListCollectionsResponse) String() string {
 func (*ListCollectionsResponse) ProtoMessage() {}
 
 func (x *ListCollectionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[35]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2075,7 +2298,7 @@ func (x *ListCollectionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCollectionsResponse.ProtoReflect.Descriptor instead.
 func (*ListCollectionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{35}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListCollectionsResponse) GetCollections() []*CollectionSummary {
@@ -2097,7 +2320,7 @@ type CollectionSummary struct {
 
 func (x *CollectionSummary) Reset() {
 	*x = CollectionSummary{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[36]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2109,7 +2332,7 @@ func (x *CollectionSummary) String() string {
 func (*CollectionSummary) ProtoMessage() {}
 
 func (x *CollectionSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[36]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2122,7 +2345,7 @@ func (x *CollectionSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectionSummary.ProtoReflect.Descriptor instead.
 func (*CollectionSummary) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{36}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *CollectionSummary) GetCollectionId() int32 {
@@ -2162,7 +2385,7 @@ type GetCollectionMoviesRequest struct {
 
 func (x *GetCollectionMoviesRequest) Reset() {
 	*x = GetCollectionMoviesRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[37]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2174,7 +2397,7 @@ func (x *GetCollectionMoviesRequest) String() string {
 func (*GetCollectionMoviesRequest) ProtoMessage() {}
 
 func (x *GetCollectionMoviesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[37]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2187,7 +2410,7 @@ func (x *GetCollectionMoviesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionMoviesRequest.ProtoReflect.Descriptor instead.
 func (*GetCollectionMoviesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{37}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetCollectionMoviesRequest) GetCollectionId() int32 {
@@ -2208,7 +2431,7 @@ type GetCollectionMoviesResponse struct {
 
 func (x *GetCollectionMoviesResponse) Reset() {
 	*x = GetCollectionMoviesResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[38]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2220,7 +2443,7 @@ func (x *GetCollectionMoviesResponse) String() string {
 func (*GetCollectionMoviesResponse) ProtoMessage() {}
 
 func (x *GetCollectionMoviesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[38]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2233,7 +2456,7 @@ func (x *GetCollectionMoviesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionMoviesResponse.ProtoReflect.Descriptor instead.
 func (*GetCollectionMoviesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{38}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GetCollectionMoviesResponse) GetCollectionId() int32 {
@@ -2271,7 +2494,7 @@ type CollectionPrefs struct {
 
 func (x *CollectionPrefs) Reset() {
 	*x = CollectionPrefs{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[39]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2283,7 +2506,7 @@ func (x *CollectionPrefs) String() string {
 func (*CollectionPrefs) ProtoMessage() {}
 
 func (x *CollectionPrefs) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[39]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2296,7 +2519,7 @@ func (x *CollectionPrefs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectionPrefs.ProtoReflect.Descriptor instead.
 func (*CollectionPrefs) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{39}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *CollectionPrefs) GetCollectionId() int32 {
@@ -2350,7 +2573,7 @@ type GetCollectionPrefsRequest struct {
 
 func (x *GetCollectionPrefsRequest) Reset() {
 	*x = GetCollectionPrefsRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[40]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2362,7 +2585,7 @@ func (x *GetCollectionPrefsRequest) String() string {
 func (*GetCollectionPrefsRequest) ProtoMessage() {}
 
 func (x *GetCollectionPrefsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[40]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2375,7 +2598,7 @@ func (x *GetCollectionPrefsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionPrefsRequest.ProtoReflect.Descriptor instead.
 func (*GetCollectionPrefsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{40}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetCollectionPrefsRequest) GetCollectionId() int32 {
@@ -2394,7 +2617,7 @@ type GetCollectionPrefsResponse struct {
 
 func (x *GetCollectionPrefsResponse) Reset() {
 	*x = GetCollectionPrefsResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[41]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2406,7 +2629,7 @@ func (x *GetCollectionPrefsResponse) String() string {
 func (*GetCollectionPrefsResponse) ProtoMessage() {}
 
 func (x *GetCollectionPrefsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[41]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2419,7 +2642,7 @@ func (x *GetCollectionPrefsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionPrefsResponse.ProtoReflect.Descriptor instead.
 func (*GetCollectionPrefsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{41}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *GetCollectionPrefsResponse) GetPrefs() *CollectionPrefs {
@@ -2442,7 +2665,7 @@ type SetCollectionMonitoredRequest struct {
 
 func (x *SetCollectionMonitoredRequest) Reset() {
 	*x = SetCollectionMonitoredRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[42]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2454,7 +2677,7 @@ func (x *SetCollectionMonitoredRequest) String() string {
 func (*SetCollectionMonitoredRequest) ProtoMessage() {}
 
 func (x *SetCollectionMonitoredRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[42]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2467,7 +2690,7 @@ func (x *SetCollectionMonitoredRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCollectionMonitoredRequest.ProtoReflect.Descriptor instead.
 func (*SetCollectionMonitoredRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{42}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *SetCollectionMonitoredRequest) GetCollectionId() int32 {
@@ -2514,7 +2737,7 @@ type SetCollectionMonitoredResponse struct {
 
 func (x *SetCollectionMonitoredResponse) Reset() {
 	*x = SetCollectionMonitoredResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[43]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2526,7 +2749,7 @@ func (x *SetCollectionMonitoredResponse) String() string {
 func (*SetCollectionMonitoredResponse) ProtoMessage() {}
 
 func (x *SetCollectionMonitoredResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[43]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2539,7 +2762,7 @@ func (x *SetCollectionMonitoredResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCollectionMonitoredResponse.ProtoReflect.Descriptor instead.
 func (*SetCollectionMonitoredResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{43}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *SetCollectionMonitoredResponse) GetPrefs() *CollectionPrefs {
@@ -2559,7 +2782,7 @@ type SyncCollectionRequest struct {
 
 func (x *SyncCollectionRequest) Reset() {
 	*x = SyncCollectionRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[44]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2571,7 +2794,7 @@ func (x *SyncCollectionRequest) String() string {
 func (*SyncCollectionRequest) ProtoMessage() {}
 
 func (x *SyncCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[44]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2584,7 +2807,7 @@ func (x *SyncCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncCollectionRequest.ProtoReflect.Descriptor instead.
 func (*SyncCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{44}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *SyncCollectionRequest) GetCollectionId() int32 {
@@ -2612,7 +2835,7 @@ type SyncCollectionResponse struct {
 
 func (x *SyncCollectionResponse) Reset() {
 	*x = SyncCollectionResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[45]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2624,7 +2847,7 @@ func (x *SyncCollectionResponse) String() string {
 func (*SyncCollectionResponse) ProtoMessage() {}
 
 func (x *SyncCollectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[45]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2637,7 +2860,7 @@ func (x *SyncCollectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncCollectionResponse.ProtoReflect.Descriptor instead.
 func (*SyncCollectionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{45}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *SyncCollectionResponse) GetAdded() int32 {
@@ -2670,7 +2893,7 @@ type ListAlternateTitlesRequest struct {
 
 func (x *ListAlternateTitlesRequest) Reset() {
 	*x = ListAlternateTitlesRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[46]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2682,7 +2905,7 @@ func (x *ListAlternateTitlesRequest) String() string {
 func (*ListAlternateTitlesRequest) ProtoMessage() {}
 
 func (x *ListAlternateTitlesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[46]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2695,7 +2918,7 @@ func (x *ListAlternateTitlesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlternateTitlesRequest.ProtoReflect.Descriptor instead.
 func (*ListAlternateTitlesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{46}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListAlternateTitlesRequest) GetMovieId() string {
@@ -2717,7 +2940,7 @@ type AlternateTitle struct {
 
 func (x *AlternateTitle) Reset() {
 	*x = AlternateTitle{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[47]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2729,7 +2952,7 @@ func (x *AlternateTitle) String() string {
 func (*AlternateTitle) ProtoMessage() {}
 
 func (x *AlternateTitle) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[47]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2742,7 +2965,7 @@ func (x *AlternateTitle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlternateTitle.ProtoReflect.Descriptor instead.
 func (*AlternateTitle) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{47}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *AlternateTitle) GetId() string {
@@ -2782,7 +3005,7 @@ type ListAlternateTitlesResponse struct {
 
 func (x *ListAlternateTitlesResponse) Reset() {
 	*x = ListAlternateTitlesResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[48]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2794,7 +3017,7 @@ func (x *ListAlternateTitlesResponse) String() string {
 func (*ListAlternateTitlesResponse) ProtoMessage() {}
 
 func (x *ListAlternateTitlesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[48]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2807,7 +3030,7 @@ func (x *ListAlternateTitlesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlternateTitlesResponse.ProtoReflect.Descriptor instead.
 func (*ListAlternateTitlesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{48}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ListAlternateTitlesResponse) GetTitles() []*AlternateTitle {
@@ -2827,7 +3050,7 @@ type AddAlternateTitleRequest struct {
 
 func (x *AddAlternateTitleRequest) Reset() {
 	*x = AddAlternateTitleRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[49]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2839,7 +3062,7 @@ func (x *AddAlternateTitleRequest) String() string {
 func (*AddAlternateTitleRequest) ProtoMessage() {}
 
 func (x *AddAlternateTitleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[49]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2852,7 +3075,7 @@ func (x *AddAlternateTitleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddAlternateTitleRequest.ProtoReflect.Descriptor instead.
 func (*AddAlternateTitleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{49}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *AddAlternateTitleRequest) GetMovieId() string {
@@ -2878,7 +3101,7 @@ type AddAlternateTitleResponse struct {
 
 func (x *AddAlternateTitleResponse) Reset() {
 	*x = AddAlternateTitleResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[50]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2890,7 +3113,7 @@ func (x *AddAlternateTitleResponse) String() string {
 func (*AddAlternateTitleResponse) ProtoMessage() {}
 
 func (x *AddAlternateTitleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[50]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2903,7 +3126,7 @@ func (x *AddAlternateTitleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddAlternateTitleResponse.ProtoReflect.Descriptor instead.
 func (*AddAlternateTitleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{50}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AddAlternateTitleResponse) GetTitle() *AlternateTitle {
@@ -2923,7 +3146,7 @@ type RemoveAlternateTitleRequest struct {
 
 func (x *RemoveAlternateTitleRequest) Reset() {
 	*x = RemoveAlternateTitleRequest{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[51]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2935,7 +3158,7 @@ func (x *RemoveAlternateTitleRequest) String() string {
 func (*RemoveAlternateTitleRequest) ProtoMessage() {}
 
 func (x *RemoveAlternateTitleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[51]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2948,7 +3171,7 @@ func (x *RemoveAlternateTitleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveAlternateTitleRequest.ProtoReflect.Descriptor instead.
 func (*RemoveAlternateTitleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{51}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *RemoveAlternateTitleRequest) GetMovieId() string {
@@ -2973,7 +3196,7 @@ type RemoveAlternateTitleResponse struct {
 
 func (x *RemoveAlternateTitleResponse) Reset() {
 	*x = RemoveAlternateTitleResponse{}
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[52]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2985,7 +3208,7 @@ func (x *RemoveAlternateTitleResponse) String() string {
 func (*RemoveAlternateTitleResponse) ProtoMessage() {}
 
 func (x *RemoveAlternateTitleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_mgmntv1_movies_proto_msgTypes[52]
+	mi := &file_proto_mgmntv1_movies_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2998,7 +3221,7 @@ func (x *RemoveAlternateTitleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveAlternateTitleResponse.ProtoReflect.Descriptor instead.
 func (*RemoveAlternateTitleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{52}
+	return file_proto_mgmntv1_movies_proto_rawDescGZIP(), []int{55}
 }
 
 var File_proto_mgmntv1_movies_proto protoreflect.FileDescriptor
@@ -3025,7 +3248,7 @@ const file_proto_mgmntv1_movies_proto_rawDesc = "" +
 	"\x13RemoveMovieResponse\"3\n" +
 	"\x16RefreshMetadataRequest\x12\x19\n" +
 	"\bmovie_id\x18\x01 \x01(\tR\amovieId\"\x19\n" +
-	"\x17RefreshMetadataResponse\"\xc1\x01\n" +
+	"\x17RefreshMetadataResponse\"\xa5\x02\n" +
 	"\x11ListMoviesRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x16\n" +
@@ -3034,7 +3257,15 @@ const file_proto_mgmntv1_movies_proto_rawDesc = "" +
 	"\asort_by\x18\x05 \x01(\tR\x06sortBy\x12\x1d\n" +
 	"\n" +
 	"sort_order\x18\x06 \x01(\tR\tsortOrder\x12\x15\n" +
-	"\x06tag_id\x18\a \x01(\tR\x05tagId\"\x97\x01\n" +
+	"\x06tag_id\x18\a \x01(\tR\x05tagId\x12b\n" +
+	"\x15classification_filter\x18\b \x01(\v2-.muxcore.media.movies.v1.ClassificationFilterR\x14classificationFilter\"\xba\x01\n" +
+	"\x14ClassificationFilter\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1d\n" +
+	"\n" +
+	"max_rating\x18\x02 \x01(\tR\tmaxRating\x12#\n" +
+	"\rallow_unrated\x18\x03 \x01(\bR\fallowUnrated\x12!\n" +
+	"\fblocked_tags\x18\x04 \x03(\tR\vblockedTags\x12!\n" +
+	"\fallowed_tags\x18\x05 \x03(\tR\vallowedTags\"\x97\x01\n" +
 	"\x12ListMoviesResponse\x12:\n" +
 	"\x06movies\x18\x01 \x03(\v2\".muxcore.media.movies.v1.MovieItemR\x06movies\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +
@@ -3069,7 +3300,7 @@ const file_proto_mgmntv1_movies_proto_rawDesc = "" +
 	"\n" +
 	"_monitored\"O\n" +
 	"\x13UpdateMovieResponse\x128\n" +
-	"\x05movie\x18\x01 \x01(\v2\".muxcore.media.movies.v1.MovieItemR\x05movie\"\xe6\x05\n" +
+	"\x05movie\x18\x01 \x01(\v2\".muxcore.media.movies.v1.MovieItemR\x05movie\"\xe6\x06\n" +
 	"\tMovieItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atmdb_id\x18\x02 \x01(\x05R\x06tmdbId\x12\x14\n" +
@@ -3099,7 +3330,11 @@ const file_proto_mgmntv1_movies_proto_rawDesc = "" +
 	"\x12quality_profile_id\x18\x15 \x01(\tR\x10qualityProfileId\x12(\n" +
 	"\x10root_folder_path\x18\x16 \x01(\tR\x0erootFolderPath\x12#\n" +
 	"\rcollection_id\x18\x17 \x01(\x05R\fcollectionId\x12'\n" +
-	"\x0fcollection_name\x18\x18 \x01(\tR\x0ecollectionName\"\x9f\x01\n" +
+	"\x0fcollection_name\x18\x18 \x01(\tR\x0ecollectionName\x12%\n" +
+	"\x0econtent_rating\x18\x1a \x01(\tR\rcontentRating\x122\n" +
+	"\x15content_rating_source\x18\x1b \x01(\tR\x13contentRatingSource\x12\x1d\n" +
+	"\n" +
+	"tag_labels\x18\x1c \x03(\tR\ttagLabelsJ\x04\b\x19\x10\x1a\"\x9f\x01\n" +
 	"\x0eAddFileRequest\x12\x19\n" +
 	"\bmovie_id\x18\x01 \x01(\tR\amovieId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x18\n" +
@@ -3149,7 +3384,12 @@ const file_proto_mgmntv1_movies_proto_rawDesc = "" +
 	"\x12GetItemTagsRequest\x12\x17\n" +
 	"\aitem_id\x18\x01 \x01(\tR\x06itemId\"G\n" +
 	"\x13GetItemTagsResponse\x120\n" +
-	"\x04tags\x18\x01 \x03(\v2\x1c.muxcore.media.movies.v1.TagR\x04tags\"\x18\n" +
+	"\x04tags\x18\x01 \x03(\v2\x1c.muxcore.media.movies.v1.TagR\x04tags\"\x86\x01\n" +
+	"\x17SetContentRatingRequest\x12\x19\n" +
+	"\bmovie_id\x18\x01 \x01(\tR\amovieId\x12%\n" +
+	"\x0econtent_rating\x18\x02 \x01(\tR\rcontentRating\x12)\n" +
+	"\x10explicit_unrated\x18\x03 \x01(\bR\x0fexplicitUnrated\"\x1a\n" +
+	"\x18SetContentRatingResponse\"\x18\n" +
 	"\x16ListCollectionsRequest\"g\n" +
 	"\x17ListCollectionsResponse\x12L\n" +
 	"\vcollections\x18\x01 \x03(\v2*.muxcore.media.movies.v1.CollectionSummaryR\vcollections\"\x8b\x01\n" +
@@ -3211,7 +3451,7 @@ const file_proto_mgmntv1_movies_proto_rawDesc = "" +
 	"\x1bRemoveAlternateTitleRequest\x12\x19\n" +
 	"\bmovie_id\x18\x01 \x01(\tR\amovieId\x12\x19\n" +
 	"\btitle_id\x18\x02 \x01(\tR\atitleId\"\x1e\n" +
-	"\x1cRemoveAlternateTitleResponse2\x97\x14\n" +
+	"\x1cRemoveAlternateTitleResponse2\x90\x15\n" +
 	"\x16MovieManagementService\x12_\n" +
 	"\bAddMovie\x12(.muxcore.media.movies.v1.AddMovieRequest\x1a).muxcore.media.movies.v1.AddMovieResponse\x12h\n" +
 	"\vRemoveMovie\x12+.muxcore.media.movies.v1.RemoveMovieRequest\x1a,.muxcore.media.movies.v1.RemoveMovieResponse\x12t\n" +
@@ -3229,7 +3469,8 @@ const file_proto_mgmntv1_movies_proto_rawDesc = "" +
 	"\tDeleteTag\x12).muxcore.media.movies.v1.DeleteTagRequest\x1a*.muxcore.media.movies.v1.DeleteTagResponse\x12_\n" +
 	"\bListTags\x12(.muxcore.media.movies.v1.ListTagsRequest\x1a).muxcore.media.movies.v1.ListTagsResponse\x12h\n" +
 	"\vSetItemTags\x12+.muxcore.media.movies.v1.SetItemTagsRequest\x1a,.muxcore.media.movies.v1.SetItemTagsResponse\x12h\n" +
-	"\vGetItemTags\x12+.muxcore.media.movies.v1.GetItemTagsRequest\x1a,.muxcore.media.movies.v1.GetItemTagsResponse\x12t\n" +
+	"\vGetItemTags\x12+.muxcore.media.movies.v1.GetItemTagsRequest\x1a,.muxcore.media.movies.v1.GetItemTagsResponse\x12w\n" +
+	"\x10SetContentRating\x120.muxcore.media.movies.v1.SetContentRatingRequest\x1a1.muxcore.media.movies.v1.SetContentRatingResponse\x12t\n" +
 	"\x0fListCollections\x12/.muxcore.media.movies.v1.ListCollectionsRequest\x1a0.muxcore.media.movies.v1.ListCollectionsResponse\x12\x80\x01\n" +
 	"\x13GetCollectionMovies\x123.muxcore.media.movies.v1.GetCollectionMoviesRequest\x1a4.muxcore.media.movies.v1.GetCollectionMoviesResponse\x12}\n" +
 	"\x12GetCollectionPrefs\x122.muxcore.media.movies.v1.GetCollectionPrefsRequest\x1a3.muxcore.media.movies.v1.GetCollectionPrefsResponse\x12\x89\x01\n" +
@@ -3251,7 +3492,7 @@ func file_proto_mgmntv1_movies_proto_rawDescGZIP() []byte {
 	return file_proto_mgmntv1_movies_proto_rawDescData
 }
 
-var file_proto_mgmntv1_movies_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_proto_mgmntv1_movies_proto_msgTypes = make([]protoimpl.MessageInfo, 56)
 var file_proto_mgmntv1_movies_proto_goTypes = []any{
 	(*AddMovieRequest)(nil),                // 0: muxcore.media.movies.v1.AddMovieRequest
 	(*AddMovieResponse)(nil),               // 1: muxcore.media.movies.v1.AddMovieResponse
@@ -3260,118 +3501,124 @@ var file_proto_mgmntv1_movies_proto_goTypes = []any{
 	(*RefreshMetadataRequest)(nil),         // 4: muxcore.media.movies.v1.RefreshMetadataRequest
 	(*RefreshMetadataResponse)(nil),        // 5: muxcore.media.movies.v1.RefreshMetadataResponse
 	(*ListMoviesRequest)(nil),              // 6: muxcore.media.movies.v1.ListMoviesRequest
-	(*ListMoviesResponse)(nil),             // 7: muxcore.media.movies.v1.ListMoviesResponse
-	(*ListMissingRequest)(nil),             // 8: muxcore.media.movies.v1.ListMissingRequest
-	(*ListMissingResponse)(nil),            // 9: muxcore.media.movies.v1.ListMissingResponse
-	(*MissingMovieItem)(nil),               // 10: muxcore.media.movies.v1.MissingMovieItem
-	(*GetMovieRequest)(nil),                // 11: muxcore.media.movies.v1.GetMovieRequest
-	(*GetMovieResponse)(nil),               // 12: muxcore.media.movies.v1.GetMovieResponse
-	(*UpdateMovieRequest)(nil),             // 13: muxcore.media.movies.v1.UpdateMovieRequest
-	(*UpdateMovieResponse)(nil),            // 14: muxcore.media.movies.v1.UpdateMovieResponse
-	(*MovieItem)(nil),                      // 15: muxcore.media.movies.v1.MovieItem
-	(*AddFileRequest)(nil),                 // 16: muxcore.media.movies.v1.AddFileRequest
-	(*AddFileResponse)(nil),                // 17: muxcore.media.movies.v1.AddFileResponse
-	(*RemoveFileRequest)(nil),              // 18: muxcore.media.movies.v1.RemoveFileRequest
-	(*RemoveFileResponse)(nil),             // 19: muxcore.media.movies.v1.RemoveFileResponse
-	(*ListFilesRequest)(nil),               // 20: muxcore.media.movies.v1.ListFilesRequest
-	(*ListFilesResponse)(nil),              // 21: muxcore.media.movies.v1.ListFilesResponse
-	(*MovieFile)(nil),                      // 22: muxcore.media.movies.v1.MovieFile
-	(*CreateTagRequest)(nil),               // 23: muxcore.media.movies.v1.CreateTagRequest
-	(*CreateTagResponse)(nil),              // 24: muxcore.media.movies.v1.CreateTagResponse
-	(*DeleteTagRequest)(nil),               // 25: muxcore.media.movies.v1.DeleteTagRequest
-	(*DeleteTagResponse)(nil),              // 26: muxcore.media.movies.v1.DeleteTagResponse
-	(*ListTagsRequest)(nil),                // 27: muxcore.media.movies.v1.ListTagsRequest
-	(*ListTagsResponse)(nil),               // 28: muxcore.media.movies.v1.ListTagsResponse
-	(*Tag)(nil),                            // 29: muxcore.media.movies.v1.Tag
-	(*SetItemTagsRequest)(nil),             // 30: muxcore.media.movies.v1.SetItemTagsRequest
-	(*SetItemTagsResponse)(nil),            // 31: muxcore.media.movies.v1.SetItemTagsResponse
-	(*GetItemTagsRequest)(nil),             // 32: muxcore.media.movies.v1.GetItemTagsRequest
-	(*GetItemTagsResponse)(nil),            // 33: muxcore.media.movies.v1.GetItemTagsResponse
-	(*ListCollectionsRequest)(nil),         // 34: muxcore.media.movies.v1.ListCollectionsRequest
-	(*ListCollectionsResponse)(nil),        // 35: muxcore.media.movies.v1.ListCollectionsResponse
-	(*CollectionSummary)(nil),              // 36: muxcore.media.movies.v1.CollectionSummary
-	(*GetCollectionMoviesRequest)(nil),     // 37: muxcore.media.movies.v1.GetCollectionMoviesRequest
-	(*GetCollectionMoviesResponse)(nil),    // 38: muxcore.media.movies.v1.GetCollectionMoviesResponse
-	(*CollectionPrefs)(nil),                // 39: muxcore.media.movies.v1.CollectionPrefs
-	(*GetCollectionPrefsRequest)(nil),      // 40: muxcore.media.movies.v1.GetCollectionPrefsRequest
-	(*GetCollectionPrefsResponse)(nil),     // 41: muxcore.media.movies.v1.GetCollectionPrefsResponse
-	(*SetCollectionMonitoredRequest)(nil),  // 42: muxcore.media.movies.v1.SetCollectionMonitoredRequest
-	(*SetCollectionMonitoredResponse)(nil), // 43: muxcore.media.movies.v1.SetCollectionMonitoredResponse
-	(*SyncCollectionRequest)(nil),          // 44: muxcore.media.movies.v1.SyncCollectionRequest
-	(*SyncCollectionResponse)(nil),         // 45: muxcore.media.movies.v1.SyncCollectionResponse
-	(*ListAlternateTitlesRequest)(nil),     // 46: muxcore.media.movies.v1.ListAlternateTitlesRequest
-	(*AlternateTitle)(nil),                 // 47: muxcore.media.movies.v1.AlternateTitle
-	(*ListAlternateTitlesResponse)(nil),    // 48: muxcore.media.movies.v1.ListAlternateTitlesResponse
-	(*AddAlternateTitleRequest)(nil),       // 49: muxcore.media.movies.v1.AddAlternateTitleRequest
-	(*AddAlternateTitleResponse)(nil),      // 50: muxcore.media.movies.v1.AddAlternateTitleResponse
-	(*RemoveAlternateTitleRequest)(nil),    // 51: muxcore.media.movies.v1.RemoveAlternateTitleRequest
-	(*RemoveAlternateTitleResponse)(nil),   // 52: muxcore.media.movies.v1.RemoveAlternateTitleResponse
+	(*ClassificationFilter)(nil),           // 7: muxcore.media.movies.v1.ClassificationFilter
+	(*ListMoviesResponse)(nil),             // 8: muxcore.media.movies.v1.ListMoviesResponse
+	(*ListMissingRequest)(nil),             // 9: muxcore.media.movies.v1.ListMissingRequest
+	(*ListMissingResponse)(nil),            // 10: muxcore.media.movies.v1.ListMissingResponse
+	(*MissingMovieItem)(nil),               // 11: muxcore.media.movies.v1.MissingMovieItem
+	(*GetMovieRequest)(nil),                // 12: muxcore.media.movies.v1.GetMovieRequest
+	(*GetMovieResponse)(nil),               // 13: muxcore.media.movies.v1.GetMovieResponse
+	(*UpdateMovieRequest)(nil),             // 14: muxcore.media.movies.v1.UpdateMovieRequest
+	(*UpdateMovieResponse)(nil),            // 15: muxcore.media.movies.v1.UpdateMovieResponse
+	(*MovieItem)(nil),                      // 16: muxcore.media.movies.v1.MovieItem
+	(*AddFileRequest)(nil),                 // 17: muxcore.media.movies.v1.AddFileRequest
+	(*AddFileResponse)(nil),                // 18: muxcore.media.movies.v1.AddFileResponse
+	(*RemoveFileRequest)(nil),              // 19: muxcore.media.movies.v1.RemoveFileRequest
+	(*RemoveFileResponse)(nil),             // 20: muxcore.media.movies.v1.RemoveFileResponse
+	(*ListFilesRequest)(nil),               // 21: muxcore.media.movies.v1.ListFilesRequest
+	(*ListFilesResponse)(nil),              // 22: muxcore.media.movies.v1.ListFilesResponse
+	(*MovieFile)(nil),                      // 23: muxcore.media.movies.v1.MovieFile
+	(*CreateTagRequest)(nil),               // 24: muxcore.media.movies.v1.CreateTagRequest
+	(*CreateTagResponse)(nil),              // 25: muxcore.media.movies.v1.CreateTagResponse
+	(*DeleteTagRequest)(nil),               // 26: muxcore.media.movies.v1.DeleteTagRequest
+	(*DeleteTagResponse)(nil),              // 27: muxcore.media.movies.v1.DeleteTagResponse
+	(*ListTagsRequest)(nil),                // 28: muxcore.media.movies.v1.ListTagsRequest
+	(*ListTagsResponse)(nil),               // 29: muxcore.media.movies.v1.ListTagsResponse
+	(*Tag)(nil),                            // 30: muxcore.media.movies.v1.Tag
+	(*SetItemTagsRequest)(nil),             // 31: muxcore.media.movies.v1.SetItemTagsRequest
+	(*SetItemTagsResponse)(nil),            // 32: muxcore.media.movies.v1.SetItemTagsResponse
+	(*GetItemTagsRequest)(nil),             // 33: muxcore.media.movies.v1.GetItemTagsRequest
+	(*GetItemTagsResponse)(nil),            // 34: muxcore.media.movies.v1.GetItemTagsResponse
+	(*SetContentRatingRequest)(nil),        // 35: muxcore.media.movies.v1.SetContentRatingRequest
+	(*SetContentRatingResponse)(nil),       // 36: muxcore.media.movies.v1.SetContentRatingResponse
+	(*ListCollectionsRequest)(nil),         // 37: muxcore.media.movies.v1.ListCollectionsRequest
+	(*ListCollectionsResponse)(nil),        // 38: muxcore.media.movies.v1.ListCollectionsResponse
+	(*CollectionSummary)(nil),              // 39: muxcore.media.movies.v1.CollectionSummary
+	(*GetCollectionMoviesRequest)(nil),     // 40: muxcore.media.movies.v1.GetCollectionMoviesRequest
+	(*GetCollectionMoviesResponse)(nil),    // 41: muxcore.media.movies.v1.GetCollectionMoviesResponse
+	(*CollectionPrefs)(nil),                // 42: muxcore.media.movies.v1.CollectionPrefs
+	(*GetCollectionPrefsRequest)(nil),      // 43: muxcore.media.movies.v1.GetCollectionPrefsRequest
+	(*GetCollectionPrefsResponse)(nil),     // 44: muxcore.media.movies.v1.GetCollectionPrefsResponse
+	(*SetCollectionMonitoredRequest)(nil),  // 45: muxcore.media.movies.v1.SetCollectionMonitoredRequest
+	(*SetCollectionMonitoredResponse)(nil), // 46: muxcore.media.movies.v1.SetCollectionMonitoredResponse
+	(*SyncCollectionRequest)(nil),          // 47: muxcore.media.movies.v1.SyncCollectionRequest
+	(*SyncCollectionResponse)(nil),         // 48: muxcore.media.movies.v1.SyncCollectionResponse
+	(*ListAlternateTitlesRequest)(nil),     // 49: muxcore.media.movies.v1.ListAlternateTitlesRequest
+	(*AlternateTitle)(nil),                 // 50: muxcore.media.movies.v1.AlternateTitle
+	(*ListAlternateTitlesResponse)(nil),    // 51: muxcore.media.movies.v1.ListAlternateTitlesResponse
+	(*AddAlternateTitleRequest)(nil),       // 52: muxcore.media.movies.v1.AddAlternateTitleRequest
+	(*AddAlternateTitleResponse)(nil),      // 53: muxcore.media.movies.v1.AddAlternateTitleResponse
+	(*RemoveAlternateTitleRequest)(nil),    // 54: muxcore.media.movies.v1.RemoveAlternateTitleRequest
+	(*RemoveAlternateTitleResponse)(nil),   // 55: muxcore.media.movies.v1.RemoveAlternateTitleResponse
 }
 var file_proto_mgmntv1_movies_proto_depIdxs = []int32{
-	15, // 0: muxcore.media.movies.v1.ListMoviesResponse.movies:type_name -> muxcore.media.movies.v1.MovieItem
-	10, // 1: muxcore.media.movies.v1.ListMissingResponse.items:type_name -> muxcore.media.movies.v1.MissingMovieItem
-	15, // 2: muxcore.media.movies.v1.GetMovieResponse.movie:type_name -> muxcore.media.movies.v1.MovieItem
-	15, // 3: muxcore.media.movies.v1.UpdateMovieResponse.movie:type_name -> muxcore.media.movies.v1.MovieItem
-	22, // 4: muxcore.media.movies.v1.ListFilesResponse.files:type_name -> muxcore.media.movies.v1.MovieFile
-	29, // 5: muxcore.media.movies.v1.ListTagsResponse.tags:type_name -> muxcore.media.movies.v1.Tag
-	29, // 6: muxcore.media.movies.v1.GetItemTagsResponse.tags:type_name -> muxcore.media.movies.v1.Tag
-	36, // 7: muxcore.media.movies.v1.ListCollectionsResponse.collections:type_name -> muxcore.media.movies.v1.CollectionSummary
-	15, // 8: muxcore.media.movies.v1.GetCollectionMoviesResponse.movies:type_name -> muxcore.media.movies.v1.MovieItem
-	39, // 9: muxcore.media.movies.v1.GetCollectionPrefsResponse.prefs:type_name -> muxcore.media.movies.v1.CollectionPrefs
-	39, // 10: muxcore.media.movies.v1.SetCollectionMonitoredResponse.prefs:type_name -> muxcore.media.movies.v1.CollectionPrefs
-	47, // 11: muxcore.media.movies.v1.ListAlternateTitlesResponse.titles:type_name -> muxcore.media.movies.v1.AlternateTitle
-	47, // 12: muxcore.media.movies.v1.AddAlternateTitleResponse.title:type_name -> muxcore.media.movies.v1.AlternateTitle
-	0,  // 13: muxcore.media.movies.v1.MovieManagementService.AddMovie:input_type -> muxcore.media.movies.v1.AddMovieRequest
-	2,  // 14: muxcore.media.movies.v1.MovieManagementService.RemoveMovie:input_type -> muxcore.media.movies.v1.RemoveMovieRequest
-	4,  // 15: muxcore.media.movies.v1.MovieManagementService.RefreshMetadata:input_type -> muxcore.media.movies.v1.RefreshMetadataRequest
-	6,  // 16: muxcore.media.movies.v1.MovieManagementService.ListMovies:input_type -> muxcore.media.movies.v1.ListMoviesRequest
-	8,  // 17: muxcore.media.movies.v1.MovieManagementService.ListMissing:input_type -> muxcore.media.movies.v1.ListMissingRequest
-	11, // 18: muxcore.media.movies.v1.MovieManagementService.GetMovie:input_type -> muxcore.media.movies.v1.GetMovieRequest
-	13, // 19: muxcore.media.movies.v1.MovieManagementService.UpdateMovie:input_type -> muxcore.media.movies.v1.UpdateMovieRequest
-	16, // 20: muxcore.media.movies.v1.MovieManagementService.AddFile:input_type -> muxcore.media.movies.v1.AddFileRequest
-	18, // 21: muxcore.media.movies.v1.MovieManagementService.RemoveFile:input_type -> muxcore.media.movies.v1.RemoveFileRequest
-	20, // 22: muxcore.media.movies.v1.MovieManagementService.ListFiles:input_type -> muxcore.media.movies.v1.ListFilesRequest
-	23, // 23: muxcore.media.movies.v1.MovieManagementService.CreateTag:input_type -> muxcore.media.movies.v1.CreateTagRequest
-	25, // 24: muxcore.media.movies.v1.MovieManagementService.DeleteTag:input_type -> muxcore.media.movies.v1.DeleteTagRequest
-	27, // 25: muxcore.media.movies.v1.MovieManagementService.ListTags:input_type -> muxcore.media.movies.v1.ListTagsRequest
-	30, // 26: muxcore.media.movies.v1.MovieManagementService.SetItemTags:input_type -> muxcore.media.movies.v1.SetItemTagsRequest
-	32, // 27: muxcore.media.movies.v1.MovieManagementService.GetItemTags:input_type -> muxcore.media.movies.v1.GetItemTagsRequest
-	34, // 28: muxcore.media.movies.v1.MovieManagementService.ListCollections:input_type -> muxcore.media.movies.v1.ListCollectionsRequest
-	37, // 29: muxcore.media.movies.v1.MovieManagementService.GetCollectionMovies:input_type -> muxcore.media.movies.v1.GetCollectionMoviesRequest
-	40, // 30: muxcore.media.movies.v1.MovieManagementService.GetCollectionPrefs:input_type -> muxcore.media.movies.v1.GetCollectionPrefsRequest
-	42, // 31: muxcore.media.movies.v1.MovieManagementService.SetCollectionMonitored:input_type -> muxcore.media.movies.v1.SetCollectionMonitoredRequest
-	44, // 32: muxcore.media.movies.v1.MovieManagementService.SyncCollection:input_type -> muxcore.media.movies.v1.SyncCollectionRequest
-	46, // 33: muxcore.media.movies.v1.MovieManagementService.ListAlternateTitles:input_type -> muxcore.media.movies.v1.ListAlternateTitlesRequest
-	49, // 34: muxcore.media.movies.v1.MovieManagementService.AddAlternateTitle:input_type -> muxcore.media.movies.v1.AddAlternateTitleRequest
-	51, // 35: muxcore.media.movies.v1.MovieManagementService.RemoveAlternateTitle:input_type -> muxcore.media.movies.v1.RemoveAlternateTitleRequest
-	1,  // 36: muxcore.media.movies.v1.MovieManagementService.AddMovie:output_type -> muxcore.media.movies.v1.AddMovieResponse
-	3,  // 37: muxcore.media.movies.v1.MovieManagementService.RemoveMovie:output_type -> muxcore.media.movies.v1.RemoveMovieResponse
-	5,  // 38: muxcore.media.movies.v1.MovieManagementService.RefreshMetadata:output_type -> muxcore.media.movies.v1.RefreshMetadataResponse
-	7,  // 39: muxcore.media.movies.v1.MovieManagementService.ListMovies:output_type -> muxcore.media.movies.v1.ListMoviesResponse
-	9,  // 40: muxcore.media.movies.v1.MovieManagementService.ListMissing:output_type -> muxcore.media.movies.v1.ListMissingResponse
-	12, // 41: muxcore.media.movies.v1.MovieManagementService.GetMovie:output_type -> muxcore.media.movies.v1.GetMovieResponse
-	14, // 42: muxcore.media.movies.v1.MovieManagementService.UpdateMovie:output_type -> muxcore.media.movies.v1.UpdateMovieResponse
-	17, // 43: muxcore.media.movies.v1.MovieManagementService.AddFile:output_type -> muxcore.media.movies.v1.AddFileResponse
-	19, // 44: muxcore.media.movies.v1.MovieManagementService.RemoveFile:output_type -> muxcore.media.movies.v1.RemoveFileResponse
-	21, // 45: muxcore.media.movies.v1.MovieManagementService.ListFiles:output_type -> muxcore.media.movies.v1.ListFilesResponse
-	24, // 46: muxcore.media.movies.v1.MovieManagementService.CreateTag:output_type -> muxcore.media.movies.v1.CreateTagResponse
-	26, // 47: muxcore.media.movies.v1.MovieManagementService.DeleteTag:output_type -> muxcore.media.movies.v1.DeleteTagResponse
-	28, // 48: muxcore.media.movies.v1.MovieManagementService.ListTags:output_type -> muxcore.media.movies.v1.ListTagsResponse
-	31, // 49: muxcore.media.movies.v1.MovieManagementService.SetItemTags:output_type -> muxcore.media.movies.v1.SetItemTagsResponse
-	33, // 50: muxcore.media.movies.v1.MovieManagementService.GetItemTags:output_type -> muxcore.media.movies.v1.GetItemTagsResponse
-	35, // 51: muxcore.media.movies.v1.MovieManagementService.ListCollections:output_type -> muxcore.media.movies.v1.ListCollectionsResponse
-	38, // 52: muxcore.media.movies.v1.MovieManagementService.GetCollectionMovies:output_type -> muxcore.media.movies.v1.GetCollectionMoviesResponse
-	41, // 53: muxcore.media.movies.v1.MovieManagementService.GetCollectionPrefs:output_type -> muxcore.media.movies.v1.GetCollectionPrefsResponse
-	43, // 54: muxcore.media.movies.v1.MovieManagementService.SetCollectionMonitored:output_type -> muxcore.media.movies.v1.SetCollectionMonitoredResponse
-	45, // 55: muxcore.media.movies.v1.MovieManagementService.SyncCollection:output_type -> muxcore.media.movies.v1.SyncCollectionResponse
-	48, // 56: muxcore.media.movies.v1.MovieManagementService.ListAlternateTitles:output_type -> muxcore.media.movies.v1.ListAlternateTitlesResponse
-	50, // 57: muxcore.media.movies.v1.MovieManagementService.AddAlternateTitle:output_type -> muxcore.media.movies.v1.AddAlternateTitleResponse
-	52, // 58: muxcore.media.movies.v1.MovieManagementService.RemoveAlternateTitle:output_type -> muxcore.media.movies.v1.RemoveAlternateTitleResponse
-	36, // [36:59] is the sub-list for method output_type
-	13, // [13:36] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	7,  // 0: muxcore.media.movies.v1.ListMoviesRequest.classification_filter:type_name -> muxcore.media.movies.v1.ClassificationFilter
+	16, // 1: muxcore.media.movies.v1.ListMoviesResponse.movies:type_name -> muxcore.media.movies.v1.MovieItem
+	11, // 2: muxcore.media.movies.v1.ListMissingResponse.items:type_name -> muxcore.media.movies.v1.MissingMovieItem
+	16, // 3: muxcore.media.movies.v1.GetMovieResponse.movie:type_name -> muxcore.media.movies.v1.MovieItem
+	16, // 4: muxcore.media.movies.v1.UpdateMovieResponse.movie:type_name -> muxcore.media.movies.v1.MovieItem
+	23, // 5: muxcore.media.movies.v1.ListFilesResponse.files:type_name -> muxcore.media.movies.v1.MovieFile
+	30, // 6: muxcore.media.movies.v1.ListTagsResponse.tags:type_name -> muxcore.media.movies.v1.Tag
+	30, // 7: muxcore.media.movies.v1.GetItemTagsResponse.tags:type_name -> muxcore.media.movies.v1.Tag
+	39, // 8: muxcore.media.movies.v1.ListCollectionsResponse.collections:type_name -> muxcore.media.movies.v1.CollectionSummary
+	16, // 9: muxcore.media.movies.v1.GetCollectionMoviesResponse.movies:type_name -> muxcore.media.movies.v1.MovieItem
+	42, // 10: muxcore.media.movies.v1.GetCollectionPrefsResponse.prefs:type_name -> muxcore.media.movies.v1.CollectionPrefs
+	42, // 11: muxcore.media.movies.v1.SetCollectionMonitoredResponse.prefs:type_name -> muxcore.media.movies.v1.CollectionPrefs
+	50, // 12: muxcore.media.movies.v1.ListAlternateTitlesResponse.titles:type_name -> muxcore.media.movies.v1.AlternateTitle
+	50, // 13: muxcore.media.movies.v1.AddAlternateTitleResponse.title:type_name -> muxcore.media.movies.v1.AlternateTitle
+	0,  // 14: muxcore.media.movies.v1.MovieManagementService.AddMovie:input_type -> muxcore.media.movies.v1.AddMovieRequest
+	2,  // 15: muxcore.media.movies.v1.MovieManagementService.RemoveMovie:input_type -> muxcore.media.movies.v1.RemoveMovieRequest
+	4,  // 16: muxcore.media.movies.v1.MovieManagementService.RefreshMetadata:input_type -> muxcore.media.movies.v1.RefreshMetadataRequest
+	6,  // 17: muxcore.media.movies.v1.MovieManagementService.ListMovies:input_type -> muxcore.media.movies.v1.ListMoviesRequest
+	9,  // 18: muxcore.media.movies.v1.MovieManagementService.ListMissing:input_type -> muxcore.media.movies.v1.ListMissingRequest
+	12, // 19: muxcore.media.movies.v1.MovieManagementService.GetMovie:input_type -> muxcore.media.movies.v1.GetMovieRequest
+	14, // 20: muxcore.media.movies.v1.MovieManagementService.UpdateMovie:input_type -> muxcore.media.movies.v1.UpdateMovieRequest
+	17, // 21: muxcore.media.movies.v1.MovieManagementService.AddFile:input_type -> muxcore.media.movies.v1.AddFileRequest
+	19, // 22: muxcore.media.movies.v1.MovieManagementService.RemoveFile:input_type -> muxcore.media.movies.v1.RemoveFileRequest
+	21, // 23: muxcore.media.movies.v1.MovieManagementService.ListFiles:input_type -> muxcore.media.movies.v1.ListFilesRequest
+	24, // 24: muxcore.media.movies.v1.MovieManagementService.CreateTag:input_type -> muxcore.media.movies.v1.CreateTagRequest
+	26, // 25: muxcore.media.movies.v1.MovieManagementService.DeleteTag:input_type -> muxcore.media.movies.v1.DeleteTagRequest
+	28, // 26: muxcore.media.movies.v1.MovieManagementService.ListTags:input_type -> muxcore.media.movies.v1.ListTagsRequest
+	31, // 27: muxcore.media.movies.v1.MovieManagementService.SetItemTags:input_type -> muxcore.media.movies.v1.SetItemTagsRequest
+	33, // 28: muxcore.media.movies.v1.MovieManagementService.GetItemTags:input_type -> muxcore.media.movies.v1.GetItemTagsRequest
+	35, // 29: muxcore.media.movies.v1.MovieManagementService.SetContentRating:input_type -> muxcore.media.movies.v1.SetContentRatingRequest
+	37, // 30: muxcore.media.movies.v1.MovieManagementService.ListCollections:input_type -> muxcore.media.movies.v1.ListCollectionsRequest
+	40, // 31: muxcore.media.movies.v1.MovieManagementService.GetCollectionMovies:input_type -> muxcore.media.movies.v1.GetCollectionMoviesRequest
+	43, // 32: muxcore.media.movies.v1.MovieManagementService.GetCollectionPrefs:input_type -> muxcore.media.movies.v1.GetCollectionPrefsRequest
+	45, // 33: muxcore.media.movies.v1.MovieManagementService.SetCollectionMonitored:input_type -> muxcore.media.movies.v1.SetCollectionMonitoredRequest
+	47, // 34: muxcore.media.movies.v1.MovieManagementService.SyncCollection:input_type -> muxcore.media.movies.v1.SyncCollectionRequest
+	49, // 35: muxcore.media.movies.v1.MovieManagementService.ListAlternateTitles:input_type -> muxcore.media.movies.v1.ListAlternateTitlesRequest
+	52, // 36: muxcore.media.movies.v1.MovieManagementService.AddAlternateTitle:input_type -> muxcore.media.movies.v1.AddAlternateTitleRequest
+	54, // 37: muxcore.media.movies.v1.MovieManagementService.RemoveAlternateTitle:input_type -> muxcore.media.movies.v1.RemoveAlternateTitleRequest
+	1,  // 38: muxcore.media.movies.v1.MovieManagementService.AddMovie:output_type -> muxcore.media.movies.v1.AddMovieResponse
+	3,  // 39: muxcore.media.movies.v1.MovieManagementService.RemoveMovie:output_type -> muxcore.media.movies.v1.RemoveMovieResponse
+	5,  // 40: muxcore.media.movies.v1.MovieManagementService.RefreshMetadata:output_type -> muxcore.media.movies.v1.RefreshMetadataResponse
+	8,  // 41: muxcore.media.movies.v1.MovieManagementService.ListMovies:output_type -> muxcore.media.movies.v1.ListMoviesResponse
+	10, // 42: muxcore.media.movies.v1.MovieManagementService.ListMissing:output_type -> muxcore.media.movies.v1.ListMissingResponse
+	13, // 43: muxcore.media.movies.v1.MovieManagementService.GetMovie:output_type -> muxcore.media.movies.v1.GetMovieResponse
+	15, // 44: muxcore.media.movies.v1.MovieManagementService.UpdateMovie:output_type -> muxcore.media.movies.v1.UpdateMovieResponse
+	18, // 45: muxcore.media.movies.v1.MovieManagementService.AddFile:output_type -> muxcore.media.movies.v1.AddFileResponse
+	20, // 46: muxcore.media.movies.v1.MovieManagementService.RemoveFile:output_type -> muxcore.media.movies.v1.RemoveFileResponse
+	22, // 47: muxcore.media.movies.v1.MovieManagementService.ListFiles:output_type -> muxcore.media.movies.v1.ListFilesResponse
+	25, // 48: muxcore.media.movies.v1.MovieManagementService.CreateTag:output_type -> muxcore.media.movies.v1.CreateTagResponse
+	27, // 49: muxcore.media.movies.v1.MovieManagementService.DeleteTag:output_type -> muxcore.media.movies.v1.DeleteTagResponse
+	29, // 50: muxcore.media.movies.v1.MovieManagementService.ListTags:output_type -> muxcore.media.movies.v1.ListTagsResponse
+	32, // 51: muxcore.media.movies.v1.MovieManagementService.SetItemTags:output_type -> muxcore.media.movies.v1.SetItemTagsResponse
+	34, // 52: muxcore.media.movies.v1.MovieManagementService.GetItemTags:output_type -> muxcore.media.movies.v1.GetItemTagsResponse
+	36, // 53: muxcore.media.movies.v1.MovieManagementService.SetContentRating:output_type -> muxcore.media.movies.v1.SetContentRatingResponse
+	38, // 54: muxcore.media.movies.v1.MovieManagementService.ListCollections:output_type -> muxcore.media.movies.v1.ListCollectionsResponse
+	41, // 55: muxcore.media.movies.v1.MovieManagementService.GetCollectionMovies:output_type -> muxcore.media.movies.v1.GetCollectionMoviesResponse
+	44, // 56: muxcore.media.movies.v1.MovieManagementService.GetCollectionPrefs:output_type -> muxcore.media.movies.v1.GetCollectionPrefsResponse
+	46, // 57: muxcore.media.movies.v1.MovieManagementService.SetCollectionMonitored:output_type -> muxcore.media.movies.v1.SetCollectionMonitoredResponse
+	48, // 58: muxcore.media.movies.v1.MovieManagementService.SyncCollection:output_type -> muxcore.media.movies.v1.SyncCollectionResponse
+	51, // 59: muxcore.media.movies.v1.MovieManagementService.ListAlternateTitles:output_type -> muxcore.media.movies.v1.ListAlternateTitlesResponse
+	53, // 60: muxcore.media.movies.v1.MovieManagementService.AddAlternateTitle:output_type -> muxcore.media.movies.v1.AddAlternateTitleResponse
+	55, // 61: muxcore.media.movies.v1.MovieManagementService.RemoveAlternateTitle:output_type -> muxcore.media.movies.v1.RemoveAlternateTitleResponse
+	38, // [38:62] is the sub-list for method output_type
+	14, // [14:38] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_proto_mgmntv1_movies_proto_init() }
@@ -3379,15 +3626,15 @@ func file_proto_mgmntv1_movies_proto_init() {
 	if File_proto_mgmntv1_movies_proto != nil {
 		return
 	}
-	file_proto_mgmntv1_movies_proto_msgTypes[13].OneofWrappers = []any{}
-	file_proto_mgmntv1_movies_proto_msgTypes[42].OneofWrappers = []any{}
+	file_proto_mgmntv1_movies_proto_msgTypes[14].OneofWrappers = []any{}
+	file_proto_mgmntv1_movies_proto_msgTypes[45].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mgmntv1_movies_proto_rawDesc), len(file_proto_mgmntv1_movies_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   53,
+			NumMessages:   56,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
