@@ -39,6 +39,7 @@ func TestUpgradeFromSnapshots(t *testing.T) {
 	}{
 		{"v0.1.9", false, false},
 		{"v0.1.15", true, true},
+		{"v0.1.21", true, true}, // latest release before content ratings (ADR-0031 S2)
 	}
 	for _, snap := range snapshots {
 		t.Run(snap.tag, func(t *testing.T) {
@@ -51,12 +52,88 @@ func TestUpgradeFromSnapshots(t *testing.T) {
 				m := openUpgradeModule(t, path)
 				moduletest.RequireSchemaSuperset(t, moduletest.Schema(t, m.db), freshSchema)
 				assertSeededRows(t, m, snap.hasRelease, snap.hasPrefs)
+				assertContentRatingsUnavailable(t, m)
 				moduletest.RequireIntegrity(t, m.db)
 				if err := m.Stop(context.Background()); err != nil {
 					t.Fatalf("pass %d Stop: %v", pass, err)
 				}
 			}
 		})
+	}
+}
+
+// TestUpgradeThenClassify checks that an upgraded database accepts operator
+// classifications and keeps them across a restart (ADR-0031 Decision 2).
+func TestUpgradeThenClassify(t *testing.T) {
+	ctx := context.Background()
+	path := moduletest.CopyFixture(t, filepath.Join("testdata", "upgrade", "v0.1.21.db"))
+
+	m := openUpgradeModule(t, path)
+	if _, err := m.SetContentRating(ctx, &mgmntv1.SetContentRatingRequest{MovieId: "mv_603_seed", ContentRating: "R"}); err != nil {
+		t.Fatalf("SetContentRating: %v", err)
+	}
+	if err := m.Stop(ctx); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+
+	m = openUpgradeModule(t, path)
+	mv, err := m.GetMovie(ctx, &mgmntv1.GetMovieRequest{MovieId: "mv_603_seed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mv.GetMovie().GetContentRating() != "R" || mv.GetMovie().GetContentRatingSource() != "operator" {
+		t.Errorf("classification lost across restart: %q/%q", mv.GetMovie().GetContentRating(), mv.GetMovie().GetContentRatingSource())
+	}
+	if got := mv.GetMovie().GetTagLabels(); len(got) != 2 || got[0] != "family-night" || got[1] != "favorites" {
+		t.Errorf("tag_labels = %v", got)
+	}
+	list, err := m.ListMovies(ctx, &mgmntv1.ListMoviesRequest{
+		PageSize:             50,
+		ClassificationFilter: &mgmntv1.ClassificationFilter{Enabled: true, AllowUnrated: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if list.GetTotal() != 1 || len(list.GetMovies()) != 1 || list.GetMovies()[0].GetId() != "mv_603_seed" {
+		t.Errorf("filtered list after classifying one movie = total %d, %v (the other seeded movies stay unavailable)", list.GetTotal(), list.GetMovies())
+	}
+}
+
+// assertContentRatingsUnavailable proves a pre-classification database reads
+// every movie as "unavailable" (empty rating and source): no rating is ever
+// inferred from existing data, and a restricted filter shows none of them.
+func assertContentRatingsUnavailable(t *testing.T, m *Module) {
+	t.Helper()
+	ctx := context.Background()
+	assertCount(t, m.db, `SELECT count(*) FROM movie_content_rating`, 0)
+	list, err := m.ListMovies(ctx, &mgmntv1.ListMoviesRequest{Page: 1, PageSize: 50})
+	if err != nil {
+		t.Fatalf("ListMovies: %v", err)
+	}
+	if len(list.GetMovies()) != 3 {
+		t.Fatalf("ListMovies returned %d movies, want 3", len(list.GetMovies()))
+	}
+	for _, mv := range list.GetMovies() {
+		if mv.GetContentRating() != "" || mv.GetContentRatingSource() != "" {
+			t.Errorf("movie %s reads as %q/%q after upgrade, want unavailable", mv.GetId(), mv.GetContentRating(), mv.GetContentRatingSource())
+		}
+	}
+	filtered, err := m.ListMovies(ctx, &mgmntv1.ListMoviesRequest{
+		Page: 1, PageSize: 50,
+		ClassificationFilter: &mgmntv1.ClassificationFilter{Enabled: true, AllowUnrated: true},
+	})
+	if err != nil {
+		t.Fatalf("filtered ListMovies: %v", err)
+	}
+	if filtered.GetTotal() != 0 || len(filtered.GetMovies()) != 0 {
+		t.Errorf("enabled filter exposed %d unclassified movies", filtered.GetTotal())
+	}
+	one, err := m.GetMovie(ctx, &mgmntv1.GetMovieRequest{MovieId: "mv_603_seed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := one.GetMovie().GetTagLabels(); len(got) != 2 || got[0] != "family-night" || got[1] != "favorites" {
+		t.Errorf("tag_labels for seeded tags = %v", got)
 	}
 }
 

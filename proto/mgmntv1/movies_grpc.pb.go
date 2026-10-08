@@ -34,6 +34,7 @@ const (
 	MovieManagementService_ListTags_FullMethodName               = "/muxcore.media.movies.v1.MovieManagementService/ListTags"
 	MovieManagementService_SetItemTags_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/SetItemTags"
 	MovieManagementService_GetItemTags_FullMethodName            = "/muxcore.media.movies.v1.MovieManagementService/GetItemTags"
+	MovieManagementService_SetContentRating_FullMethodName       = "/muxcore.media.movies.v1.MovieManagementService/SetContentRating"
 	MovieManagementService_ListCollections_FullMethodName        = "/muxcore.media.movies.v1.MovieManagementService/ListCollections"
 	MovieManagementService_GetCollectionMovies_FullMethodName    = "/muxcore.media.movies.v1.MovieManagementService/GetCollectionMovies"
 	MovieManagementService_GetCollectionPrefs_FullMethodName     = "/muxcore.media.movies.v1.MovieManagementService/GetCollectionPrefs"
@@ -63,6 +64,10 @@ type MovieManagementServiceClient interface {
 	ListTags(ctx context.Context, in *ListTagsRequest, opts ...grpc.CallOption) (*ListTagsResponse, error)
 	SetItemTags(ctx context.Context, in *SetItemTagsRequest, opts ...grpc.CallOption) (*SetItemTagsResponse, error)
 	GetItemTags(ctx context.Context, in *GetItemTagsRequest, opts ...grpc.CallOption) (*GetItemTagsResponse, error)
+	// SetContentRating records the operator's parental classification for a
+	// movie (ADR-0031 Decision 2). No caller authorization is checked here:
+	// the consumer BFF restricts it to admins, like SetItemTags.
+	SetContentRating(ctx context.Context, in *SetContentRatingRequest, opts ...grpc.CallOption) (*SetContentRatingResponse, error)
 	ListCollections(ctx context.Context, in *ListCollectionsRequest, opts ...grpc.CallOption) (*ListCollectionsResponse, error)
 	GetCollectionMovies(ctx context.Context, in *GetCollectionMoviesRequest, opts ...grpc.CallOption) (*GetCollectionMoviesResponse, error)
 	GetCollectionPrefs(ctx context.Context, in *GetCollectionPrefsRequest, opts ...grpc.CallOption) (*GetCollectionPrefsResponse, error)
@@ -231,6 +236,16 @@ func (c *movieManagementServiceClient) GetItemTags(ctx context.Context, in *GetI
 	return out, nil
 }
 
+func (c *movieManagementServiceClient) SetContentRating(ctx context.Context, in *SetContentRatingRequest, opts ...grpc.CallOption) (*SetContentRatingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetContentRatingResponse)
+	err := c.cc.Invoke(ctx, MovieManagementService_SetContentRating_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *movieManagementServiceClient) ListCollections(ctx context.Context, in *ListCollectionsRequest, opts ...grpc.CallOption) (*ListCollectionsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListCollectionsResponse)
@@ -330,6 +345,10 @@ type MovieManagementServiceServer interface {
 	ListTags(context.Context, *ListTagsRequest) (*ListTagsResponse, error)
 	SetItemTags(context.Context, *SetItemTagsRequest) (*SetItemTagsResponse, error)
 	GetItemTags(context.Context, *GetItemTagsRequest) (*GetItemTagsResponse, error)
+	// SetContentRating records the operator's parental classification for a
+	// movie (ADR-0031 Decision 2). No caller authorization is checked here:
+	// the consumer BFF restricts it to admins, like SetItemTags.
+	SetContentRating(context.Context, *SetContentRatingRequest) (*SetContentRatingResponse, error)
 	ListCollections(context.Context, *ListCollectionsRequest) (*ListCollectionsResponse, error)
 	GetCollectionMovies(context.Context, *GetCollectionMoviesRequest) (*GetCollectionMoviesResponse, error)
 	GetCollectionPrefs(context.Context, *GetCollectionPrefsRequest) (*GetCollectionPrefsResponse, error)
@@ -392,6 +411,9 @@ func (UnimplementedMovieManagementServiceServer) SetItemTags(context.Context, *S
 }
 func (UnimplementedMovieManagementServiceServer) GetItemTags(context.Context, *GetItemTagsRequest) (*GetItemTagsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetItemTags not implemented")
+}
+func (UnimplementedMovieManagementServiceServer) SetContentRating(context.Context, *SetContentRatingRequest) (*SetContentRatingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetContentRating not implemented")
 }
 func (UnimplementedMovieManagementServiceServer) ListCollections(context.Context, *ListCollectionsRequest) (*ListCollectionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListCollections not implemented")
@@ -709,6 +731,24 @@ func _MovieManagementService_GetItemTags_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MovieManagementService_SetContentRating_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetContentRatingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MovieManagementServiceServer).SetContentRating(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MovieManagementService_SetContentRating_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MovieManagementServiceServer).SetContentRating(ctx, req.(*SetContentRatingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MovieManagementService_ListCollections_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListCollectionsRequest)
 	if err := dec(in); err != nil {
@@ -919,6 +959,10 @@ var MovieManagementService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetItemTags",
 			Handler:    _MovieManagementService_GetItemTags_Handler,
+		},
+		{
+			MethodName: "SetContentRating",
+			Handler:    _MovieManagementService_SetContentRating_Handler,
 		},
 		{
 			MethodName: "ListCollections",

@@ -275,6 +275,11 @@ func (m *Module) Init(ctx context.Context) error {
 		db.Close()
 		return err
 	}
+	if err := m.ensureContentRatingTable(ctx); err != nil {
+		m.mu.Unlock()
+		db.Close()
+		return err
+	}
 	m.backfillMovieTitles(ctx)
 	m.mu.Unlock()
 
@@ -848,7 +853,10 @@ func (m *Module) UpdateMovie(ctx context.Context, req *mgmntv1.UpdateMovieReques
 		args = append(args, monitored)
 	}
 	if len(sets) == 0 {
-		movie := m.getMovieLocked(ctx, req.GetMovieId())
+		movie, err := m.getMovieLocked(ctx, req.GetMovieId())
+		if err != nil {
+			return nil, err
+		}
 		if movie == nil {
 			return nil, fmt.Errorf("movie not found: %s", req.GetMovieId())
 		}
@@ -870,21 +878,31 @@ func (m *Module) UpdateMovie(ctx context.Context, req *mgmntv1.UpdateMovieReques
 		return nil, fmt.Errorf("movie not found: %s", req.GetMovieId())
 	}
 
-	movie := m.getMovieLocked(ctx, req.GetMovieId())
+	movie, err := m.getMovieLocked(ctx, req.GetMovieId())
+	if err != nil {
+		return nil, err
+	}
 	if movie == nil {
 		return nil, fmt.Errorf("movie not found: %s", req.GetMovieId())
 	}
 	return &mgmntv1.UpdateMovieResponse{Movie: movie}, nil
 }
 
-func (m *Module) getMovieLocked(ctx context.Context, movieID string) *mgmntv1.MovieItem {
+// getMovieLocked returns the movie with its classification attached, or
+// (nil, nil) when it does not exist.
+func (m *Module) getMovieLocked(ctx context.Context, movieID string) (*mgmntv1.MovieItem, error) {
 	row := m.db.QueryRowContext(ctx,
-		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
-		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies WHERE id = ?`,
+		`SELECT `+movieSelectCols+` FROM movies WHERE id = ?`,
 		movieID,
 	)
-	return m.scanSingle(row)
+	movie := m.scanSingle(row)
+	if movie == nil {
+		return nil, nil
+	}
+	if err := m.attachClassification(ctx, movie); err != nil {
+		return nil, err
+	}
+	return movie, nil
 }
 
 func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieRequest) (*mgmntv1.RemoveMovieResponse, error) {
@@ -922,6 +940,7 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 
 	for _, q := range []string{
 		`DELETE FROM item_tags WHERE item_id = ?`,
+		`DELETE FROM movie_content_rating WHERE movie_id = ?`,
 		`DELETE FROM movie_titles WHERE movie_id = ?`,
 		`DELETE FROM movie_files WHERE movie_id = ?`,
 	} {
@@ -1046,9 +1065,12 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 	}
 	offset := (page - 1) * pageSize
 
-	query := `SELECT id, tmdb_id, title, original_title, year, overview, tagline,
-		runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies`
+	cf, err := compileClassificationFilter(req.GetClassificationFilter())
+	if err != nil {
+		return nil, err
+	}
+
+	query := `SELECT ` + movieSelectCols + ` FROM movies`
 	countQuery := `SELECT COUNT(*) FROM movies`
 
 	var args []any
@@ -1073,11 +1095,6 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 		countQuery += clause
 	}
 
-	var total int
-	if err := m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
-		return nil, fmt.Errorf("count movies: %w", err)
-	}
-
 	sortBy := req.GetSortBy()
 	if sortBy == "" {
 		sortBy = "title"
@@ -1094,7 +1111,22 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 	if sortOrder != "desc" {
 		sortOrder = "asc"
 	}
-	query += fmt.Sprintf(` ORDER BY %s %s LIMIT ? OFFSET ?`, sortBy, sortOrder)
+	orderBy := fmt.Sprintf(` ORDER BY %s %s`, sortBy, sortOrder)
+
+	if cf != nil {
+		whereClause := ""
+		if len(where) > 0 {
+			whereClause = ` WHERE ` + strings.Join(where, ` AND `)
+		}
+		return m.listMoviesFiltered(ctx, whereClause, args, orderBy, page, pageSize, cf)
+	}
+
+	var total int
+	if err := m.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("count movies: %w", err)
+	}
+
+	query += orderBy + ` LIMIT ? OFFSET ?`
 	queryArgs := append(args, pageSize, offset)
 
 	rows, err := m.db.QueryContext(ctx, query, queryArgs...)
@@ -1109,6 +1141,14 @@ func (m *Module) ListMovies(ctx context.Context, req *mgmntv1.ListMoviesRequest)
 		if movie != nil {
 			movies = append(movies, movie)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("query movies: %w", err)
+	}
+	// Release the connection before the classification lookups (pool size 1).
+	_ = rows.Close()
+	if err := m.attachClassification(ctx, movies...); err != nil {
+		return nil, err
 	}
 
 	return &mgmntv1.ListMoviesResponse{
@@ -1175,14 +1215,10 @@ func (m *Module) GetMovie(ctx context.Context, req *mgmntv1.GetMovieRequest) (*m
 		return nil, fmt.Errorf("not initialized")
 	}
 
-	row := m.db.QueryRowContext(ctx,
-		`SELECT id, tmdb_id, title, original_title, year, overview, tagline,
-		 runtime, vote_average, status, imdb_id, genres, poster_path, backdrop_path,
-		 monitored, has_file, quality_profile_id, root_folder_path, created_at, updated_at FROM movies WHERE id = ?`,
-		req.GetMovieId(),
-	)
-
-	movie := m.scanSingle(row)
+	movie, err := m.getMovieLocked(ctx, req.GetMovieId())
+	if err != nil {
+		return nil, err
+	}
 	if movie == nil {
 		return nil, fmt.Errorf("movie not found: %s", req.GetMovieId())
 	}
