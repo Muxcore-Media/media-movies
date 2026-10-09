@@ -10,7 +10,7 @@ require (
 	github.com/Muxcore-Media/core/sdk/go/module v0.6.6
 	github.com/Muxcore-Media/media-automation v0.1.46
 	github.com/Muxcore-Media/media-root-folders v0.1.7
-	github.com/Muxcore-Media/metadata-tmdb v0.1.6
+	github.com/Muxcore-Media/metadata-tmdb v0.1.10
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.55.0
