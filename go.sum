@@ -16,6 +16,8 @@ github.com/Muxcore-Media/media-root-folders v0.1.7 h1:uctUT763cgaIOcbDHRbn/9hRh+
 github.com/Muxcore-Media/media-root-folders v0.1.7/go.mod h1:bBb7dI0T6O+FD7R/jrhOZZ5vbYrAtZAeD83ARuOygsg=
 github.com/Muxcore-Media/metadata-tmdb v0.1.6 h1:GQ0IdRimxTh50vpHvgmAa1dPu8280l258g11Kaugnrs=
 github.com/Muxcore-Media/metadata-tmdb v0.1.6/go.mod h1:Um2yFY+lnfcmI+nJbQR+3D3nKW1AuA2ntSfDiJQhLqc=
+github.com/Muxcore-Media/metadata-tmdb v0.1.10 h1:eN48NPiicuku6ijr86XFoetkeivAbbTfyzLqmod6bes=
+github.com/Muxcore-Media/metadata-tmdb v0.1.10/go.mod h1:+Jajg8DtWD70qBfOFcy31DnwTWQnbXcPE2/FYIAVT6I=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=

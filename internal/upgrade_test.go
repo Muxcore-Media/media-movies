@@ -9,6 +9,7 @@ import (
 	mediaadminv1 "github.com/Muxcore-Media/contracts-media-admin/gen/muxcore/media/admin/v1"
 	"github.com/Muxcore-Media/core/sdk/go/module/moduletest"
 	mgmntv1 "github.com/Muxcore-Media/media-movies/proto/mgmntv1"
+	metadatav1 "github.com/Muxcore-Media/metadata-tmdb/proto/metadatav1"
 )
 
 // openUpgradeModule opens the database at dbPath with the current store entry
@@ -33,13 +34,17 @@ func openUpgradeModule(t *testing.T, dbPath string) *Module {
 func TestUpgradeFromSnapshots(t *testing.T) {
 	// hasRelease is true when the snapshot already has movies.release_date;
 	// hasPrefs is true when it already has collection_prefs.
+	// operatorRows is true when the snapshot already has movie_content_rating
+	// with two operator rows (mv_603_seed R, mv_550_seed NR).
 	snapshots := []struct {
 		tag                  string
 		hasRelease, hasPrefs bool
+		operatorRows         bool
 	}{
-		{"v0.1.9", false, false},
-		{"v0.1.15", true, true},
-		{"v0.1.21", true, true}, // latest release before content ratings (ADR-0031 S2)
+		{"v0.1.9", false, false, false},
+		{"v0.1.15", true, true, false},
+		{"v0.1.21", true, true, false}, // latest release before content ratings (ADR-0031 S2)
+		{"v0.1.23", true, true, true},  // operator ratings, before the tmdb source (S4c)
 	}
 	for _, snap := range snapshots {
 		t.Run(snap.tag, func(t *testing.T) {
@@ -52,7 +57,12 @@ func TestUpgradeFromSnapshots(t *testing.T) {
 				m := openUpgradeModule(t, path)
 				moduletest.RequireSchemaSuperset(t, moduletest.Schema(t, m.db), freshSchema)
 				assertSeededRows(t, m, snap.hasRelease, snap.hasPrefs)
-				assertContentRatingsUnavailable(t, m)
+				if snap.operatorRows {
+					assertOperatorRowsSurvive(t, m)
+				} else {
+					assertContentRatingsUnavailable(t, m)
+				}
+				assertCount(t, m.db, `SELECT count(*) FROM movie_tmdb_rating`, 0)
 				moduletest.RequireIntegrity(t, m.db)
 				if err := m.Stop(context.Background()); err != nil {
 					t.Fatalf("pass %d Stop: %v", pass, err)
@@ -275,4 +285,70 @@ func assertCount(t *testing.T, db *sql.DB, query string, want int) {
 	if n != want {
 		t.Errorf("%s = %d, want %d", query, n, want)
 	}
+}
+
+// assertOperatorRowsSurvive checks a v0.1.23 database: the two operator rows
+// read back unchanged with source "operator", the third movie is unavailable,
+// and the new tmdb table starts empty (nothing is inferred or backfilled).
+func assertOperatorRowsSurvive(t *testing.T, m *Module) {
+	t.Helper()
+	ctx := context.Background()
+	assertCount(t, m.db, `SELECT count(*) FROM movie_content_rating`, 2)
+	for id, want := range map[string]string{"mv_603_seed": "R", "mv_550_seed": "NR", "mv_680_seed": ""} {
+		mv, err := m.GetMovie(ctx, &mgmntv1.GetMovieRequest{MovieId: id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantSrc := ""
+		if want != "" {
+			wantSrc = "operator"
+		}
+		if mv.GetMovie().GetContentRating() != want || mv.GetMovie().GetContentRatingSource() != wantSrc {
+			t.Errorf("%s reads %q/%q after upgrade, want %q/%q", id, mv.GetMovie().GetContentRating(), mv.GetMovie().GetContentRatingSource(), want, wantSrc)
+		}
+	}
+	one, err := m.GetMovie(ctx, &mgmntv1.GetMovieRequest{MovieId: "mv_603_seed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := one.GetMovie().GetTagLabels(); len(got) != 2 || got[0] != "family-night" || got[1] != "favorites" {
+		t.Errorf("tag_labels for seeded tags = %v", got)
+	}
+}
+
+// TestUpgradeFromV0123ThenTMDB opens the v0.1.23 database, refreshes metadata
+// with a fake metadata client and checks that the tmdb source fills only the
+// unclassified movie while both operator rows keep winning, across a restart.
+func TestUpgradeFromV0123ThenTMDB(t *testing.T) {
+	ctx := context.Background()
+	path := moduletest.CopyFixture(t, filepath.Join("testdata", "upgrade", "v0.1.23.db"))
+	certs := map[int32]string{603: "PG-13", 550: "R", 680: "R"}
+
+	m := openUpgradeModule(t, path)
+	m.movieDetailsFn = func(_ context.Context, tmdbID int32) (*metadatav1.GetMovieDetailsResponse, error) {
+		return &metadatav1.GetMovieDetailsResponse{Title: "T", Certification: certs[tmdbID], CertificationCountry: "US"}, nil
+	}
+	for _, id := range []string{"mv_603_seed", "mv_550_seed", "mv_680_seed"} {
+		if _, err := m.RefreshMetadata(ctx, &mgmntv1.RefreshMetadataRequest{MovieId: id}); err != nil {
+			t.Fatalf("RefreshMetadata(%s): %v", id, err)
+		}
+	}
+	if err := m.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	m = openUpgradeModule(t, path)
+	want := map[string][2]string{
+		"mv_603_seed": {"R", "operator"},  // operator R beats tmdb PG-13
+		"mv_550_seed": {"NR", "operator"}, // operator NR beats tmdb R
+		"mv_680_seed": {"R", "tmdb"},      // no operator value: tmdb fills it
+	}
+	for id, w := range want {
+		mv := getMovie(t, m, id)
+		if mv.GetContentRating() != w[0] || mv.GetContentRatingSource() != w[1] {
+			t.Errorf("%s = %q/%q after restart, want %q/%q", id, mv.GetContentRating(), mv.GetContentRatingSource(), w[0], w[1])
+		}
+	}
+	assertCount(t, m.db, `SELECT count(*) FROM movie_content_rating`, 2)
+	assertCount(t, m.db, `SELECT count(*) FROM movie_tmdb_rating`, 3)
 }

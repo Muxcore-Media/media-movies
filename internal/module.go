@@ -67,6 +67,8 @@ type Module struct {
 	automationSearchFn func(ctx context.Context, req *automationv1.SearchItemRequest) (*automationv1.SearchItemResponse, error)
 	// collectionPartsFn overrides metadata GetCollection for tests.
 	collectionPartsFn func(ctx context.Context, collectionID int32) ([]collectionPart, error)
+	// movieDetailsFn overrides metadata GetMovieDetails for tests.
+	movieDetailsFn func(ctx context.Context, tmdbID int32) (*metadatav1.GetMovieDetailsResponse, error)
 }
 
 type Config struct {
@@ -941,6 +943,7 @@ func (m *Module) RemoveMovie(ctx context.Context, req *mgmntv1.RemoveMovieReques
 	for _, q := range []string{
 		`DELETE FROM item_tags WHERE item_id = ?`,
 		`DELETE FROM movie_content_rating WHERE movie_id = ?`,
+		`DELETE FROM movie_tmdb_rating WHERE movie_id = ?`,
 		`DELETE FROM movie_titles WHERE movie_id = ?`,
 		`DELETE FROM movie_files WHERE movie_id = ?`,
 	} {
@@ -975,23 +978,11 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 		return nil, fmt.Errorf("movie not found: %s", req.GetMovieId())
 	}
 
-	metaAddr, err := m.findMetadataAddr(ctx)
+	details, err := m.fetchMovieDetails(ctx, tmdbID)
 	if err != nil {
+		// A failed fetch leaves every stored value, including the tmdb
+		// content rating, untouched.
 		return nil, err
-	}
-
-	conn, err := meshtls.Dial(metaAddr)
-	if err != nil {
-		return nil, fmt.Errorf("dial metadata: %w", err)
-	}
-	defer conn.Close()
-
-	metaClient := metadatav1.NewMetadataServiceClient(conn)
-	details, err := metaClient.GetMovieDetails(ctx, &metadatav1.GetMovieDetailsRequest{
-		TmdbId: tmdbID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("metadata fetch: %w", err)
 	}
 
 	genresJSON, _ := json.Marshal(details.GetGenres())
@@ -1007,6 +998,7 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 	}
 
 	m.mu.Lock()
+	var ratingErr error
 	var collID int32
 	var collName string
 	if c := details.GetBelongsToCollection(); c != nil {
@@ -1022,10 +1014,17 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 	)
 	if err == nil {
 		m.syncMoviePrimaryTitlesLocked(ctx, req.GetMovieId(), details.GetTitle(), details.GetOriginalTitle())
+		// The fetch succeeded, so the certification is authoritative for the
+		// tmdb source: a mappable value replaces the stored one, an empty or
+		// unmappable one clears it. The operator table is never touched.
+		ratingErr = m.setTMDBRatingLocked(ctx, req.GetMovieId(), details.GetCertification(), details.GetCertificationCountry())
 	}
 	m.mu.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("update movie: %w", err)
+	}
+	if ratingErr != nil {
+		return nil, fmt.Errorf("persist tmdb content rating (movie metadata was updated): %w", ratingErr)
 	}
 
 	m.persistCachedArtwork(ctx, req.GetMovieId(), posterSrc, backdropSrc)
@@ -1037,6 +1036,28 @@ func (m *Module) RefreshMetadata(ctx context.Context, req *mgmntv1.RefreshMetada
 
 	slog.Info("metadata refreshed", "movie_id", req.GetMovieId(), "title", details.GetTitle())
 	return &mgmntv1.RefreshMetadataResponse{}, nil
+}
+
+// fetchMovieDetails calls the metadata module's GetMovieDetails.
+func (m *Module) fetchMovieDetails(ctx context.Context, tmdbID int32) (*metadatav1.GetMovieDetailsResponse, error) {
+	if m.movieDetailsFn != nil {
+		return m.movieDetailsFn(ctx, tmdbID)
+	}
+	metaAddr, err := m.findMetadataAddr(ctx)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := meshtls.Dial(metaAddr)
+	if err != nil {
+		return nil, fmt.Errorf("dial metadata: %w", err)
+	}
+	defer conn.Close()
+
+	details, err := metadatav1.NewMetadataServiceClient(conn).GetMovieDetails(ctx, &metadatav1.GetMovieDetailsRequest{TmdbId: tmdbID})
+	if err != nil {
+		return nil, fmt.Errorf("metadata fetch: %w", err)
+	}
+	return details, nil
 }
 
 func extractYear(dateStr string) int32 {

@@ -10,6 +10,7 @@ code and checks schema superset, seeded rows, new-column defaults, integrity.
 | `v0.1.9` (previous release-train version) | no `movies.release_date`, no `collection_prefs` |
 | `v0.1.15` (previous tag before latest `v0.1.16`) | same DDL as the v0.1.21 snapshot |
 | `v0.1.21` (last release before `movie_content_rating`, ADR-0031 S2) | no `movie_content_rating` table; every movie reads as unavailable |
+| `v0.1.23` (last release before `movie_tmdb_rating`, ADR-0031 S4c) | has `movie_content_rating` with two operator rows (`mv_603_seed` R, `mv_550_seed` NR) added by SQL after the seed; no `movie_tmdb_rating` |
 
 ## How produced
 
