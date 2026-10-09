@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `tmdb` classification source (ADR-0031 Decision 2, T-M4-01 slice S4c): `RefreshMetadata` reads the `certification` / `certification_country` that metadata-tmdb v0.1.10 returns on `GetMovieDetails` and stores a normalised value in the new `movie_tmdb_rating` table (created idempotently at startup; no change to `movie_content_rating`, so v0.1.21 and v0.1.23 databases open unchanged). Only a ladder token or an unrated marker (`NR`, `UR`, `NOT RATED`, `UNRATED` -> `NR`) is accepted; country-specific tokens, free text and empty values yield no tmdb value. A failed fetch keeps the previous tmdb value; a successful fetch with an empty or unmappable certification clears it.
+- Effective `content_rating` is now the operator value if present, else the tmdb value, else unavailable; `content_rating_source` is `operator` or `tmdb`. An operator rating (including explicit `NR`) always beats a tmdb rating; clearing the operator value returns the item to its tmdb value. Filter semantics are unchanged (unavailable is never visible when the filter is enabled).
+- Upgrade snapshot `v0.1.23` (operator rows present) and tests with a faked metadata client.
+
+### Changed
+- Depends on `github.com/Muxcore-Media/metadata-tmdb` v0.1.10 (was v0.1.6).
+- `RemoveMovie` also deletes the movie's `movie_tmdb_rating` row.
+
 ## [0.1.23] - 2026-10-08
 
 Version skips v0.1.22 (and, for media-tvshows, v0.1.21): tags with those numbers exist on unmerged branches that add an unauthenticated `content_rating` and are not part of this history.

@@ -21,9 +21,19 @@ import (
 //   - unrated:     an explicit "NR" recorded by a trusted source;
 //   - unavailable: nothing recorded (the state of every pre-existing row).
 //
-// A rating is never inferred from other data: vote_average is not a rating
-// and nothing in a metadata payload populates this table. Only the operator
-// source exists today; a "tmdb" source is a later slice.
+// A rating is never inferred from other data: vote_average and TMDB's "adult"
+// flag are not ratings. There are two sources, kept in two tables so that one
+// can never overwrite the other (T-M4-01 slice S4c, ADR-0031 Decision 2):
+//
+//   - operator (highest precedence): movie_content_rating, written only by
+//     SetContentRating;
+//   - tmdb (lower precedence): movie_tmdb_rating, written only by
+//     RefreshMetadata from the metadata module's certification, and only when
+//     that certification maps onto the ladder or an unrated marker.
+//
+// The effective classification is the operator value if one is recorded, else
+// the tmdb value, else unavailable. An explicit operator NR wins over a tmdb
+// rating; clearing the operator value returns the item to its tmdb value.
 //
 // Authorization is NOT checked in this module. SetContentRating, like
 // SetItemTags, trusts its caller; the consumer BFF restricts both to admin or
@@ -32,6 +42,9 @@ import (
 const (
 	// contentRatingSourceOperator marks a value written by SetContentRating.
 	contentRatingSourceOperator = "operator"
+	// contentRatingSourceTMDB marks a value derived from the metadata module's
+	// TMDB certification. It is never stored in movie_content_rating.
+	contentRatingSourceTMDB = "tmdb"
 	// contentRatingNR is the stored/exposed token for an explicit unrated
 	// record. It is a state, not a rating, so it is not on the ladder.
 	contentRatingNR = "NR"
@@ -57,6 +70,23 @@ func ratingLevel(token string) (level int, ok bool) {
 	return level, ok
 }
 
+// normalizeTMDBCertification maps a raw TMDB certification onto the stored
+// token: a ladder token (upper case), "NR" for the unrated markers NR, UR,
+// "NOT RATED" and "UNRATED", or "" for everything else. Country-specific values
+// ("15", "12A", "FSK 16"), free text and the empty string are not ratings on
+// this ladder and yield no value; nothing is inferred from them.
+func normalizeTMDBCertification(raw string) string {
+	tok := strings.ToUpper(strings.Join(strings.Fields(raw), " "))
+	switch tok {
+	case "NR", "UR", "NOT RATED", "UNRATED":
+		return contentRatingNR
+	}
+	if _, ok := ratingLevel(tok); ok {
+		return tok
+	}
+	return ""
+}
+
 // normalizeTag is the single tag comparison form (trimmed, case-folded) used by
 // the classification filter on both sides of an exact match.
 func normalizeTag(tag string) string {
@@ -75,6 +105,46 @@ func (m *Module) ensureContentRatingTable(ctx context.Context) error {
 		)
 	`); err != nil {
 		return fmt.Errorf("create movie_content_rating: %w", err)
+	}
+	// The tmdb-derived value lives in its own table so no operator write can
+	// touch it and no refresh can touch the operator row. A row exists only
+	// while TMDB reports a mappable certification.
+	if _, err := m.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS movie_tmdb_rating (
+			movie_id       TEXT PRIMARY KEY,
+			content_rating TEXT NOT NULL,
+			country        TEXT NOT NULL DEFAULT '',
+			updated_at     TEXT NOT NULL,
+			FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
+		)
+	`); err != nil {
+		return fmt.Errorf("create movie_tmdb_rating: %w", err)
+	}
+	return nil
+}
+
+// setTMDBRatingLocked records the TMDB certification of a movie after a
+// SUCCESSFUL metadata fetch. A mappable certification is stored (replacing any
+// previous tmdb value); an empty or unmappable one clears the stored tmdb
+// value, so a removed or changed certification is reflected. A failed fetch
+// must not call this: the previous tmdb value is then kept. It never reads or
+// writes the operator table. Callers hold m.mu for writing.
+func (m *Module) setTMDBRatingLocked(ctx context.Context, movieID, certification, country string) error {
+	token := normalizeTMDBCertification(certification)
+	if token == "" {
+		if _, err := m.db.ExecContext(ctx, `DELETE FROM movie_tmdb_rating WHERE movie_id = ?`, movieID); err != nil {
+			return fmt.Errorf("clear tmdb rating: %w", err)
+		}
+		return nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := m.db.ExecContext(ctx,
+		`INSERT INTO movie_tmdb_rating (movie_id, content_rating, country, updated_at) VALUES (?, ?, ?, ?)
+		 ON CONFLICT(movie_id) DO UPDATE SET content_rating = excluded.content_rating,
+		   country = excluded.country, updated_at = excluded.updated_at`,
+		movieID, token, strings.ToUpper(strings.TrimSpace(country)), now,
+	); err != nil {
+		return fmt.Errorf("set tmdb rating: %w", err)
 	}
 	return nil
 }
@@ -135,17 +205,24 @@ func (m *Module) SetContentRating(ctx context.Context, req *mgmntv1.SetContentRa
 // classification is the trusted parental data of one movie.
 type classification struct {
 	rating string // "" (unavailable), "NR", or a ladder token (upper case)
-	source string // "" or contentRatingSourceOperator
+	source string // "", contentRatingSourceOperator or contentRatingSourceTMDB
 	tags   []string
 }
 
-// loadClassifications returns the classification of every id, in two queries
-// (ratings, tag labels), independent of the number of ids. Callers hold m.mu
+// validStoredRating reports whether a stored value is "NR" or on the ladder.
+func validStoredRating(rating string) bool {
+	_, onLadder := ratingLevel(rating)
+	return onLadder || rating == contentRatingNR
+}
+
+// loadClassifications returns the classification of every id, in three queries per
+// chunk (operator ratings, tmdb ratings, tag labels), independent of the number of ids. Callers hold m.mu
 // and must not have a result cursor open (the pool has one connection).
 //
 // A stored row only counts when its source is trusted and its value is "NR" or
-// on the ladder; anything else (including a hand-edited row) reads as
-// unavailable, so a bad value can never widen access.
+// on the ladder; anything else (including a hand-edited row) is ignored, so a
+// bad value can never widen access. The effective value is the operator row if
+// it counts, else the tmdb row if it counts, else unavailable.
 func (m *Module) loadClassifications(ctx context.Context, ids []string) (map[string]classification, error) {
 	out := make(map[string]classification, len(ids))
 	for _, id := range ids {
@@ -172,7 +249,7 @@ func (m *Module) loadClassifications(ctx context.Context, ids []string) (map[str
 				return nil, fmt.Errorf("scan content rating: %w", err)
 			}
 			rating = strings.ToUpper(strings.TrimSpace(rating))
-			if _, onLadder := ratingLevel(rating); source == contentRatingSourceOperator && (onLadder || rating == contentRatingNR) {
+			if source == contentRatingSourceOperator && validStoredRating(rating) {
 				c := out[id]
 				c.rating, c.source = rating, source
 				out[id] = c
@@ -183,6 +260,30 @@ func (m *Module) loadClassifications(ctx context.Context, ids []string) (map[str
 			return nil, fmt.Errorf("load content ratings: %w", err)
 		}
 		_ = rrows.Close()
+
+		// The tmdb value only fills items the operator has not classified.
+		mrows, err := m.db.QueryContext(ctx,
+			`SELECT movie_id, content_rating FROM movie_tmdb_rating WHERE movie_id IN (`+ph+`)`, args...)
+		if err != nil {
+			return nil, fmt.Errorf("load tmdb ratings: %w", err)
+		}
+		for mrows.Next() {
+			var id, rating string
+			if err := mrows.Scan(&id, &rating); err != nil {
+				_ = mrows.Close()
+				return nil, fmt.Errorf("scan tmdb rating: %w", err)
+			}
+			rating = strings.ToUpper(strings.TrimSpace(rating))
+			if c := out[id]; c.rating == "" && validStoredRating(rating) {
+				c.rating, c.source = rating, contentRatingSourceTMDB
+				out[id] = c
+			}
+		}
+		if err := mrows.Err(); err != nil {
+			_ = mrows.Close()
+			return nil, fmt.Errorf("load tmdb ratings: %w", err)
+		}
+		_ = mrows.Close()
 
 		trows, err := m.db.QueryContext(ctx,
 			`SELECT it.item_id, t.label FROM item_tags it
