@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.24] - 2026-10-09
 
 ### Added
 - `tmdb` classification source (ADR-0031 Decision 2, T-M4-01 slice S4c): `RefreshMetadata` reads the `certification` / `certification_country` that metadata-tmdb v0.1.10 returns on `GetMovieDetails` and stores a normalised value in the new `movie_tmdb_rating` table (created idempotently at startup; no change to `movie_content_rating`, so v0.1.21 and v0.1.23 databases open unchanged). Only a ladder token or an unrated marker (`NR`, `UR`, `NOT RATED`, `UNRATED` -> `NR`) is accepted; country-specific tokens, free text and empty values yield no tmdb value. A failed fetch keeps the previous tmdb value; a successful fetch with an empty or unmappable certification clears it.
